@@ -1,0 +1,8 @@
+{
+  "core.manuscript": true,
+  "core.entities": true,
+  "studio.analytics": false,
+  "intelligence.ai": false,
+  "forge.sync": false,
+  "developer.mode": false
+}

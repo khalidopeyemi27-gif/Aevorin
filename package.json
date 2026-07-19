@@ -1,0 +1,26 @@
+{
+  "name": "aevorin-workspace",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "install:all": "npm install && cd client && npm install",
+    "server": "node backend/server.js",
+    "client": "npm run dev --prefix client",
+    "client:android": "npm run dev --prefix client -- --mode android",
+    "dev": "concurrently \"npm run server\" \"npm run client\"",
+    "dev:android": "concurrently \"npm run server\" \"npm run client:android\"",
+    "build:client": "npm run build --prefix client",
+    "test": "node --test tests/kernel/boot.test.js tests/database/migration.test.js tests/database/integrity.test.js tests/manuscript/chapter.test.js tests/manuscript/scene.test.js tests/export/epub.test.js tests/export/docx.test.js tests/backup/restore.test.js tests/manuscript/memory_engine.test.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.110.7",
+    "cors": "^2.8.5",
+    "dotenv": "^16.6.1",
+    "express": "^4.21.2",
+    "pg": "^8.22.0",
+    "uuid": "^9.0.1"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
