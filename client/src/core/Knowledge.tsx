@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { apiUrl } from "../lib/api";
 import { useSwipeGesture } from "../hooks/useSwipeGesture";
 import { EntityRepository } from "../database/repositories/entityRepository";
+import { TimelineRepository } from "../database/repositories/timelineRepository";
 import { PromptModal } from "../components/ui/PromptModal";
 
 interface Entity {
@@ -241,26 +242,37 @@ function CW({ entity, onClose, onSave, onDelete, projectId, entities, onJumpToSc
     if (!patchField.trim() || !patchValue.trim()) return;
 
     try {
-      const res = await fetch(`/api/projects/${projectId}/canon/characters/changes`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          characterId: entity.id,
-          eventId: "manual",
-          positionKey: patchPosKey,
-          field: patchField.trim(),
-          oldValue: "",
-          newValue: patchValue.trim()
-        })
+      // 1. Create event locally in Dexie IndexedDB (0ms persistence + Sync Queue)
+      await TimelineRepository.createEvent({
+        projectId,
+        title: `Memory: ${patchField.trim()} → ${patchValue.trim()}`,
+        description: `Character event at ${patchPosKey}`,
+        timestamp: patchPosKey
       });
 
-      if (!res.ok) throw new Error("Failed to commit change log");
+      // 2. Background API call
+      try {
+        await fetch(apiUrl(`/api/projects/${projectId}/canon/characters/changes`), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            characterId: entity.id,
+            eventId: "manual",
+            positionKey: patchPosKey,
+            field: patchField.trim(),
+            oldValue: "",
+            newValue: patchValue.trim()
+          })
+        });
+      } catch (err) {
+        console.warn("[CW] Background API memory commit queued for sync:", err);
+      }
 
       setPatchField("");
       setPatchValue("");
       await loadState();
     } catch (err) {
-      console.error(err);
+      console.error("[CW] Error committing memory patch:", err);
     }
   };
 
@@ -269,7 +281,7 @@ function CW({ entity, onClose, onSave, onDelete, projectId, entities, onJumpToSc
       {/* Header */}
       <div style={{ padding: "1.1rem 1.5rem 0", background: "#242424", borderBottom: "1px solid rgba(255,255,255,0.05)", flexShrink: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: "0.9rem", marginBottom: "0.8rem" }}>
-          <button onClick={onClose} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.4)", cursor: "pointer", fontSize: "1.2rem", padding: 0 }}>\u2190</button>
+          <button onClick={onClose} style={{ background: "none", border: "none", color: "#e08e6d", cursor: "pointer", fontSize: "0.9rem", fontWeight: 600, display: "flex", alignItems: "center", gap: "0.3rem", padding: 0 }} title="Back to Character List">← Back</button>
           <span style={{ fontSize: "1rem" }}>{meta.portrait || "\ud83e\uddd1"}</span>
           <input value={title} onChange={e => setTitle(e.target.value)} style={{ flex: 1, background: "none", border: "none", color: "#fff", fontSize: "1.2rem", fontWeight: 700, fontFamily: "'Source Serif 4',Georgia,serif", outline: "none", padding: 0 }} />
           <button onClick={onDelete} style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.2)", color: "#ef4444", borderRadius: "8px", padding: "0.35rem 0.65rem", fontSize: "0.77rem", cursor: "pointer" }}>Delete</button>
@@ -564,7 +576,11 @@ function CW({ entity, onClose, onSave, onDelete, projectId, entities, onJumpToSc
                         );
                       })}
                       {history.length === 0 && (
-                        <p style={{ color: "rgba(255,255,255,0.3)", fontSize: "0.8rem", textAlign: "center", margin: "3rem 0" }}>No story journey events logged yet</p>
+                        <div style={{ textAlign: "center", padding: "3rem 1rem", color: "rgba(255,255,255,0.4)" }}>
+                          <div style={{ fontSize: "2.2rem", marginBottom: "0.5rem" }}>📜</div>
+                          <h4 style={{ margin: "0 0 0.25rem 0", color: "#fff", fontSize: "1rem", fontWeight: 700 }}>No memories yet</h4>
+                          <p style={{ margin: 0, fontSize: "0.82rem", color: "rgba(255,255,255,0.4)" }}>Capture important events in this character's life using the log form on the right.</p>
+                        </div>
                       )}
                     </div>
                   </div>
