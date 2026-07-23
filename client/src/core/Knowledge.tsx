@@ -724,24 +724,43 @@ export default function Knowledge({
         initialMeta = { constraint: "", penalty: "", description: "" };
       }
 
-      const res = await fetch(`/api/projects/${projectId}/entities`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          type: activeTab,
-          title: newTitle.trim(),
-          summary: "",
-          metadata: initialMeta
-        }),
+      // 1. Save directly to local Dexie IndexedDB (0ms Persistence + Sync Queue)
+      const newEnt = await EntityRepository.createEntity({
+        projectId,
+        type: activeTab,
+        title: newTitle.trim(),
+        summary: "",
+        metadataJson: JSON.stringify(initialMeta)
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error("Failed to create entity");
+
+      // 2. Background push to backend API
+      try {
+        await fetch(`/api/projects/${projectId}/entities`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            id: newEnt.id,
+            type: activeTab,
+            title: newTitle.trim(),
+            summary: "",
+            metadata: initialMeta
+          }),
+        });
+      } catch (err) {
+        console.warn("[Knowledge] Background API push queued for sync:", err);
+      }
 
       setNewTitle("");
       await onRefreshEntities();
-      handleEntitySelect(data);
+      handleEntitySelect({
+        id: newEnt.id,
+        type: newEnt.type,
+        title: newEnt.title,
+        summary: newEnt.summary || "",
+        metadata: initialMeta
+      });
     } catch (e) {
-      console.error(e);
+      console.error("[Knowledge] Error creating entity:", e);
     } finally {
       setLoading(false);
     }
@@ -929,76 +948,73 @@ export default function Knowledge({
     }
   });
 
-  // ── CHARACTER VIEW ─────────────────────────────────────────────────────────
-  if (activeTab === "character") {
-    return (
-      <div style={{ display: "flex", height: "100%", background: "#1e1e1e", color: "#fff" }}>
-        {/* Left: card grid */}
-        <aside style={{ width: activeEntityId ? "255px" : "100%", flexShrink: 0, borderRight: activeEntityId ? "1px solid rgba(255,255,255,0.06)" : "none", display: (activeEntityId && window.innerWidth < 768) ? "none" : "flex", flexDirection: "column" as any, height: "100%", background: "#1e1e1e", overflow: "hidden" }}>
-          <div style={{ padding: "1rem 1rem 0.85rem", borderBottom: "1px solid rgba(255,255,255,0.05)", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
-            <div>
-              <div style={{ fontSize: "0.6rem", color: "rgba(255,255,255,0.28)", textTransform: "uppercase" as any, letterSpacing: "0.1em", fontWeight: 600 }}>Story Room</div>
-              <div style={{ fontSize: "1rem", fontWeight: 700, color: "#e08e6d", fontFamily: "'Source Serif 4',Georgia,serif" }}>Characters</div>
-            </div>
-            <button
-              onClick={() => {
-                setPromptModal({
-                  isOpen: true,
-                  title: "New Character",
-                  subtitle: "Enter a name for your new character profile",
-                  placeholder: "e.g. Arin Thorne",
-                  confirmText: "Create Character",
-                  onConfirm: (t) => {
-                    setPromptModal((prev) => ({ ...prev, isOpen: false }));
-                    if (t.trim()) {
-                      setNewTitle(t.trim());
-                      setTimeout(() => (document.getElementById("char-submit-trigger") as HTMLButtonElement)?.click(), 50);
-                    }
-                  }
-                });
-              }}
-              style={{ width: "32px", height: "32px", borderRadius: "50%", background: "#9f8ad0", border: "none", color: "#fff", fontSize: "1.3rem", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 3px 12px rgba(159,138,208,0.4)" }}
-            >+</button>
-          </div>
-          <div style={{ overflowY: "auto", flex: 1, padding: "0.85rem" }}>
-            {filteredEntities.length === 0 ? (
-              <div style={{ textAlign: "center", paddingTop: "3rem", color: "rgba(255,255,255,0.22)" }}>
-                <div style={{ fontSize: "2.5rem", marginBottom: "0.6rem" }}>\ud83e\uddd1</div>
-                <p style={{ fontSize: "0.82rem" }}>No characters yet.</p>
-                <p style={{ fontSize: "0.75rem", marginTop: "0.2rem" }}>Tap + to add one.</p>
-              </div>
-            ) : (
-              <div style={{ display: "grid", gridTemplateColumns: activeEntityId ? "1fr" : "1fr 1fr", gap: "0.6rem" }}>
-                {filteredEntities.map(entity => <CC key={entity.id} entity={entity} active={activeEntityId === entity.id} onClick={() => handleEntitySelect(entity)} />)}
-              </div>
-            )}
-          </div>
-          <form onSubmit={handleCreate} style={{ display: "none" }}>
-            <input value={newTitle} onChange={e => setNewTitle(e.target.value)} />
-            <button type="submit" id="char-submit-trigger">Go</button>
-          </form>
-        </aside>
-        {/* Right: Character Workspace */}
-        {activeEntityId && activeEntity && (
-          <div ref={cwRef} style={{ flex: 1, height: "100%", overflow: "hidden", minWidth: 0 }}>
-            <CW 
-              entity={activeEntity} 
-              onClose={() => setActiveEntityId(null)} 
-              onSave={handleCharSave} 
-              onDelete={handleDelete} 
-              projectId={projectId} 
-              entities={entities} 
-              onJumpToScene={onJumpToScene}
-            />
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  // ── WORLD / TIMELINE / HISTORY / RULES ─────────────────────────────────────
+  // ── RENDER ──────────────────────────────────────────────────────────────────
   return (
-    <div className="knowledge-workspace" style={{ background: "#2d2d2d", minHeight: "calc(100vh - 120px)", position: "relative", color: "#fff" }}>
+    <>
+      {activeTab === "character" ? (
+        <div key="tab-character" style={{ display: "flex", height: "100%", background: "#1e1e1e", color: "#fff" }}>
+          {/* Left: card grid */}
+          <aside style={{ width: activeEntityId ? "255px" : "100%", flexShrink: 0, borderRight: activeEntityId ? "1px solid rgba(255,255,255,0.06)" : "none", display: (activeEntityId && window.innerWidth < 768) ? "none" : "flex", flexDirection: "column" as any, height: "100%", background: "#1e1e1e", overflow: "hidden" }}>
+            <div style={{ padding: "1rem 1rem 0.85rem", borderBottom: "1px solid rgba(255,255,255,0.05)", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
+              <div>
+                <div style={{ fontSize: "0.6rem", color: "rgba(255,255,255,0.28)", textTransform: "uppercase" as any, letterSpacing: "0.1em", fontWeight: 600 }}>Story Room</div>
+                <div style={{ fontSize: "1rem", fontWeight: 700, color: "#e08e6d", fontFamily: "'Source Serif 4',Georgia,serif" }}>Characters</div>
+              </div>
+              <button
+                onClick={() => {
+                  setPromptModal({
+                    isOpen: true,
+                    title: "New Character",
+                    subtitle: "Enter a name for your new character profile",
+                    placeholder: "e.g. Arin Thorne",
+                    confirmText: "Create Character",
+                    onConfirm: (t) => {
+                      setPromptModal((prev) => ({ ...prev, isOpen: false }));
+                      if (t.trim()) {
+                        setNewTitle(t.trim());
+                        setTimeout(() => (document.getElementById("char-submit-trigger") as HTMLButtonElement)?.click(), 50);
+                      }
+                    }
+                  });
+                }}
+                style={{ width: "32px", height: "32px", borderRadius: "50%", background: "#9f8ad0", border: "none", color: "#fff", fontSize: "1.3rem", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 3px 12px rgba(159,138,208,0.4)" }}
+              >+</button>
+            </div>
+            <div style={{ overflowY: "auto", flex: 1, padding: "0.85rem" }}>
+              {filteredEntities.length === 0 ? (
+                <div style={{ textAlign: "center", paddingTop: "3rem", color: "rgba(255,255,255,0.22)" }}>
+                  <div style={{ fontSize: "2.5rem", marginBottom: "0.6rem" }}>🧑</div>
+                  <p style={{ fontSize: "0.82rem" }}>No characters yet.</p>
+                  <p style={{ fontSize: "0.75rem", marginTop: "0.2rem" }}>Tap + to add one.</p>
+                </div>
+              ) : (
+                <div style={{ display: "grid", gridTemplateColumns: activeEntityId ? "1fr" : "1fr 1fr", gap: "0.6rem" }}>
+                  {filteredEntities.map(entity => <CC key={entity.id} entity={entity} active={activeEntityId === entity.id} onClick={() => handleEntitySelect(entity)} />)}
+                </div>
+              )}
+            </div>
+            <form onSubmit={handleCreate} style={{ display: "none" }}>
+              <input value={newTitle} onChange={e => setNewTitle(e.target.value)} />
+              <button type="submit" id="char-submit-trigger">Go</button>
+            </form>
+          </aside>
+          {/* Right: Character Workspace */}
+          {activeEntityId && activeEntity && (
+            <div ref={cwRef} style={{ flex: 1, height: "100%", overflow: "hidden", minWidth: 0 }}>
+              <CW 
+                entity={activeEntity} 
+                onClose={() => setActiveEntityId(null)} 
+                onSave={handleCharSave} 
+                onDelete={handleDelete} 
+                projectId={projectId} 
+                entities={entities} 
+                onJumpToScene={onJumpToScene}
+              />
+            </div>
+          )}
+        </div>
+      ) : (
+        <div key={`tab-${activeTab}`} className="knowledge-workspace" style={{ background: "#2d2d2d", minHeight: "calc(100vh - 120px)", position: "relative", color: "#fff" }}>
       
       <div style={{ display: "flex", width: "100%", height: "100%" }}>
         
@@ -1070,9 +1086,48 @@ export default function Knowledge({
                 </span>
               </div>
             </div>
-            {/* Relationship graph outline button */}
-            <div style={{ color: "#e08e6d", fontSize: "1.2rem", cursor: "pointer" }} title="Relations Map">
-              🔄
+            {/* Header controls & Add button */}
+            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+              {(activeTab !== "world" || selectedWorldCategory !== null) && (
+                <button
+                  onClick={() => {
+                    const promptName = activeTab === "world" ? (selectedWorldCategory || "world element") : activeTab;
+                    setPromptModal({
+                      isOpen: true,
+                      title: `New ${promptName.slice(0, 1).toUpperCase() + promptName.slice(1)}`,
+                      subtitle: `Enter a name for your new ${promptName}`,
+                      placeholder: `e.g. ${promptName === 'places' ? 'Eldoria City' : 'Name'}`,
+                      confirmText: "Create Profile",
+                      onConfirm: (title) => {
+                        setPromptModal((prev) => ({ ...prev, isOpen: false }));
+                        if (title.trim()) {
+                          setNewTitle(title.trim());
+                          setTimeout(() => {
+                            const submitBtn = document.getElementById("hidden-submit-trigger");
+                            if (submitBtn) submitBtn.click();
+                          }, 100);
+                        }
+                      }
+                    });
+                  }}
+                  style={{
+                    padding: "0.4rem 0.85rem",
+                    borderRadius: "8px",
+                    background: "linear-gradient(135deg, #9f8ad0, #b46cff)",
+                    color: "#fff",
+                    border: "none",
+                    fontSize: "0.82rem",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "0.3rem",
+                    boxShadow: "0 3px 10px rgba(180, 108, 255, 0.3)"
+                  }}
+                >
+                  + Add
+                </button>
+              )}
             </div>
           </div>
 
@@ -1081,7 +1136,7 @@ export default function Knowledge({
             padding: "1.25rem",
             overflowY: "auto",
             flex: 1,
-            paddingBottom: "90px"
+            paddingBottom: "30px"
           }}>
             {activeTab === "world" && selectedWorldCategory === null ? (
               /* Display the 5 world categories matching the encyclopedia grid template */
@@ -1200,60 +1255,14 @@ export default function Knowledge({
 
                 {filteredEntities.length === 0 && (
                   <div style={{ padding: "3rem 1.5rem", textAlign: "center", color: "rgba(255,255,255,0.35)" }}>
-                    No world profiles added yet. Tap the purple "+" button to add one!
+                    No world profiles added yet. Click "+ Add" to create one!
                   </div>
                 )}
               </>
             )}
           </div>
 
-          {/* Floating Action Button (FAB) inside list panel */}
-          {(activeTab !== "world" || selectedWorldCategory !== null) && (
-            <button
-              onClick={() => {
-                const promptName = activeTab === "world" ? (selectedWorldCategory || "world element") : activeTab;
-                setPromptModal({
-                  isOpen: true,
-                  title: `New ${promptName.slice(0, 1).toUpperCase() + promptName.slice(1)}`,
-                  subtitle: `Enter a name for your new ${promptName}`,
-                  placeholder: `e.g. ${promptName === 'places' ? 'Eldoria City' : 'Name'}`,
-                  confirmText: "Create Profile",
-                  onConfirm: (title) => {
-                    setPromptModal((prev) => ({ ...prev, isOpen: false }));
-                    if (title.trim()) {
-                      setNewTitle(title.trim());
-                      setTimeout(() => {
-                        const submitBtn = document.getElementById("hidden-submit-trigger");
-                        if (submitBtn) submitBtn.click();
-                      }, 100);
-                    }
-                  }
-                });
-              }}
-              style={{
-                position: "absolute",
-                bottom: "5rem",
-                right: "1.5rem",
-                width: "56px",
-                height: "56px",
-                borderRadius: "50%",
-                background: "#9f8ad0",
-                color: "#fff",
-                border: "none",
-                fontSize: "1.8rem",
-                fontWeight: "bold",
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                boxShadow: "0 4px 15px rgba(159,138,208,0.45)",
-                zIndex: 99
-              }}
-              title={`Add new ${activeTab}`}
-            >
-              +
-            </button>
-          )}
+
 
           {/* Hidden form to wire click triggers to existing logic handler */}
           <form 
@@ -1437,6 +1446,8 @@ export default function Knowledge({
           )}
         </main>
       </div>
+    </div>
+  )}
 
       <PromptModal
         isOpen={promptModal.isOpen}
@@ -1456,6 +1467,6 @@ export default function Knowledge({
           }
         }
       `}</style>
-    </div>
+    </>
   );
 }
