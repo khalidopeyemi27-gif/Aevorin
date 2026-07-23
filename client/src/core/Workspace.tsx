@@ -8,6 +8,7 @@ import { useSwipeGesture } from "../hooks/useSwipeGesture";
 import { CommandPalette } from "../components/workspace/CommandPalette";
 import { SearchOverlay } from "../components/workspace/SearchOverlay";
 import { Modal, Button, FAB, BottomSheet } from "../components/ui";
+import { EntityRepository } from "../database/repositories/entityRepository";
 
 function parseManuscriptLocally(content: string) {
   const lines = content.split(/\r?\n/);
@@ -277,11 +278,50 @@ export default function Workspace({
 
   const fetchEntities = async () => {
     try {
-      const res = await fetch(apiUrl(`/api/projects/${project.id}/entities`));
-      const data = await res.json();
-      setEntities(data);
+      // 1. Fetch local IndexedDB entities
+      const localEntities = await EntityRepository.getEntities(project.id);
+      
+      // 2. Fetch API entities
+      let apiEntities: any[] = [];
+      try {
+        const res = await fetch(apiUrl(`/api/projects/${project.id}/entities`));
+        if (res.ok) {
+          apiEntities = await res.json();
+        }
+      } catch (e) {
+        // API offline fallback is expected
+      }
+
+      // 3. Merge local & remote entities (local takes precedence)
+      const map = new Map<string, any>();
+      apiEntities.forEach(e => {
+        if (e && e.id) {
+          map.set(e.id, {
+            ...e,
+            type: (e.type || "character").toLowerCase(),
+            metadata: e.metadata || {}
+          });
+        }
+      });
+      localEntities.forEach(e => {
+        let parsedMeta = {};
+        if (typeof e.metadataJson === "string") {
+          try { parsedMeta = JSON.parse(e.metadataJson); } catch (err) {}
+        } else if (e.metadataJson) {
+          parsedMeta = e.metadataJson;
+        }
+        map.set(e.id, {
+          id: e.id,
+          type: (e.type || "character").toLowerCase(),
+          title: e.title,
+          summary: e.summary || "",
+          metadata: parsedMeta
+        });
+      });
+
+      setEntities(Array.from(map.values()));
     } catch (e) {
-      console.error(e);
+      console.error("[Workspace] Error fetching entities:", e);
     }
   };
 

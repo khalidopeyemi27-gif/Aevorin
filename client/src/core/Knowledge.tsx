@@ -894,11 +894,12 @@ export default function Knowledge({
   }, [triggerAction, projectId]);
 
   const filteredEntities = entities.filter(e => {
-    if (e.type !== activeTab) return false;
-    if (activeTab === "world") {
-      // If we haven't selected a category, we don't display entities here
+    const eType = (e.type || "").toLowerCase();
+    const targetType = (activeTab || "").toLowerCase();
+    if (eType !== targetType) return false;
+    if (targetType === "world") {
       if (!selectedWorldCategory) return false;
-      return e.metadata?.subCategory === selectedWorldCategory;
+      return (e.metadata?.subCategory || "").toLowerCase() === selectedWorldCategory.toLowerCase();
     }
     return true;
   });
