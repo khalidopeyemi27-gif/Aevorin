@@ -1,13 +1,46 @@
 services:
+  # ----------------------------------------------------------------------------
+  # 1. AEVORIN Backend API Service (Node.js + Express + Supabase)
+  # ----------------------------------------------------------------------------
   - type: web
-    name: aevorin-api
-    runtime: node
-    buildCommand: npm install
-    startCommand: npm run server
+    name: aevorin-backend
+    env: node
+    region: oregon
+    plan: free
+    rootDir: backend
+    buildCommand: npm ci
+    startCommand: node server.js
+    healthCheckPath: /health
     envVars:
+      - key: NODE_VERSION
+        value: 20.11.0
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 5000
+      - key: SYNC_PROTOCOL_VERSION
+        value: "1"
+      - key: SYNC_SCHEMA_VERSION
+        value: "1"
+      - key: FRONTEND_URL
+        value: https://aevorin-web.onrender.com
       - key: SUPABASE_URL
         sync: false
-      - key: SUPABASE_KEY
+      - key: SUPABASE_SERVICE_ROLE_KEY
         sync: false
-      - key: SUPABASE_DB_URL
-        sync: false
+
+  # ----------------------------------------------------------------------------
+  # 2. AEVORIN Frontend Web Application (React 19 + Vite + PWA)
+  # ----------------------------------------------------------------------------
+  - type: static
+    name: aevorin-web
+    rootDir: client
+    buildCommand: npm ci && npm run build
+    staticPublishPath: ./dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_API_URL
+        value: https://aevorin-backend.onrender.com

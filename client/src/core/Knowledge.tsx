@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useSwipeGesture } from "../hooks/useSwipeGesture";
+import { EntityRepository } from "../database/repositories/entityRepository";
 
 interface Entity {
   id: string;
@@ -789,27 +790,21 @@ export default function Knowledge({
 
   // Handle triggerAction events dispatched from Command Palette
   useEffect(() => {
-    if (!triggerAction) return;
-
     if (triggerAction === "create-character") {
       const title = window.prompt("Enter new character name:");
       if (title && title.trim()) {
         (async () => {
           try {
-            const res = await fetch(`/api/projects/${projectId}/entities`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                type: "character",
-                title: title.trim(),
-                summary: "",
-                metadata: { age: "", appearance: "", traits: "", motivation: "" }
-              }),
+            const meta = { age: "", appearance: "", traits: "", motivation: "" };
+            const newEnt = await EntityRepository.createEntity({
+              projectId,
+              type: "character",
+              title: title.trim(),
+              summary: "",
+              metadataJson: JSON.stringify(meta)
             });
-            const data = await res.json();
-            if (!res.ok) throw new Error("Failed to create character");
             await onRefreshEntities();
-            handleEntitySelect(data);
+            handleEntitySelect({ ...newEnt, metadata: meta });
           } catch (e) {
             console.error(e);
           }
@@ -821,20 +816,16 @@ export default function Knowledge({
       if (title && title.trim()) {
         (async () => {
           try {
-            const res = await fetch(`/api/projects/${projectId}/entities`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                type: "world",
-                title: title.trim(),
-                summary: "",
-                metadata: { geography: "", description: "", climate: "", history: "" }
-              }),
+            const meta = { geography: "", description: "", climate: "", history: "" };
+            const newEnt = await EntityRepository.createEntity({
+              projectId,
+              type: "world",
+              title: title.trim(),
+              summary: "",
+              metadataJson: JSON.stringify(meta)
             });
-            const data = await res.json();
-            if (!res.ok) throw new Error("Failed to create world profile");
             await onRefreshEntities();
-            handleEntitySelect(data);
+            handleEntitySelect({ ...newEnt, metadata: meta });
           } catch (e) {
             console.error(e);
           }
@@ -846,20 +837,16 @@ export default function Knowledge({
       if (title && title.trim()) {
         (async () => {
           try {
-            const res = await fetch(`/api/projects/${projectId}/entities`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                type: "timeline",
-                title: title.trim(),
-                summary: "",
-                metadata: { date: "", event: "", description: "", impact: "" }
-              }),
+            const meta = { date: "", event: "", description: "", impact: "" };
+            const newEnt = await EntityRepository.createEntity({
+              projectId,
+              type: "timeline",
+              title: title.trim(),
+              summary: "",
+              metadataJson: JSON.stringify(meta)
             });
-            const data = await res.json();
-            if (!res.ok) throw new Error("Failed to create timeline event");
             await onRefreshEntities();
-            handleEntitySelect(data);
+            handleEntitySelect({ ...newEnt, metadata: meta });
           } catch (e) {
             console.error(e);
           }

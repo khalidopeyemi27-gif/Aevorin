@@ -396,7 +396,7 @@ export default function StoryGraph({ projectId }: StoryGraphProps) {
                     setGraphDepth(2);
                   } else {
                     // Toggle depth if tapping the already focused center node
-                    setGraphDepth(prev => prev === 1 ? 2 : 1);
+                    setGraphDepth(graphDepth === 1 ? 2 : 1);
                   }
                 }}
               >

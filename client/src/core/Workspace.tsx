@@ -1712,7 +1712,7 @@ export default function Workspace({
         onClose={() => setShowCommandPalette(false)}
         onNavigate={setActiveTab}
         onToggleFocus={() => setFocusMode(!focusMode)}
-        onSetTheme={setTheme}
+        onSetTheme={(theme) => updatePreferences({ theme })}
         onCreateChapter={() => { setActiveTab("manuscript"); setTriggerAction("create-chapter"); }}
         onImportManuscript={() => importInputRef.current?.click()}
         onExportEPUB={() => { setActiveTab("export"); setExportFormat("epub"); handleExport(); }}

@@ -9,6 +9,8 @@ import { computeDiff } from "../lib/diff";
 import { useActivityTracker } from "../hooks/useActivityTracker";
 import { useLongPress } from "../hooks/useLongPress";
 import { BottomSheet, Button } from "../components/ui";
+import { db } from "../lib/db";
+import { SyncManager } from "../services/sync/SyncManager";
 
 function extractPlainTextFromTipTap(contentStr: string): string {
   if (!contentStr) return "";
@@ -366,7 +368,7 @@ export default function Manuscript({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [activeScene, editor]);
 
-  // Debounced Auto-save operation
+  // Local-First 500ms Debounced Auto-save to Dexie IndexedDB
   useEffect(() => {
     if (!dirty || !activeScene || !editor || editor.isDestroyed) return;
 
@@ -376,38 +378,65 @@ export default function Manuscript({
         const jsonContent = editor.getJSON();
         const contentString = JSON.stringify(jsonContent);
 
-        const updates = {
+        // 1. Write to Dexie IndexedDB local database immediately
+        const now = new Date().toISOString();
+        await db.scenes.put({
+          id: activeScene.id,
+          projectId,
+          chapterId: activeScene.chapter_id || "",
           title: activeScene.title,
           content: contentString,
-          summary: activeScene.summary,
-          povEntityId: activeScene.pov_entity_id,
-          purpose: activeScene.purpose,
-          conflict: activeScene.conflict,
-          outcome: activeScene.outcome,
           wordCount: activeScene.word_count,
-          status: activeScene.status,
-          mood: activeScene.mood,
-          chapterId: activeScene.chapter_id
-        };
-
-        const res = await fetch(`/api/projects/${projectId}/scenes/${activeScene.id}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(updates),
+          orderIndex: activeScene.order_index || 0,
+          updatedAt: now,
+          version: 1,
+          syncStatus: "pending"
         });
 
-        if (!res.ok) throw new Error("Autosave failed");
-        
-        // Remove local recovery key since DB write succeeded
-        localStorage.removeItem(`aevorin_recovery_${activeScene.id}`);
+        await db.drafts.put({
+          id: `draft_${activeScene.id}`,
+          sceneId: activeScene.id,
+          contentDelta: contentString,
+          contentHash: contentString.length.toString(),
+          wordCount: activeScene.word_count,
+          updatedAt: now,
+          syncStatus: "pending"
+        });
 
-        // Refresh scene lists
-        await onRefreshScenes();
+        // 2. Try background API sync
+        try {
+          const updates = {
+            title: activeScene.title,
+            content: contentString,
+            summary: activeScene.summary,
+            povEntityId: activeScene.pov_entity_id,
+            purpose: activeScene.purpose,
+            conflict: activeScene.conflict,
+            outcome: activeScene.outcome,
+            wordCount: activeScene.word_count,
+            status: activeScene.status,
+            mood: activeScene.mood,
+            chapterId: activeScene.chapter_id
+          };
+
+          await fetch(apiUrl(`/api/projects/${projectId}/scenes/${activeScene.id}`), {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(updates),
+          });
+
+          await onRefreshScenes();
+        } catch (_) {
+          // Offline mode: local Dexie save succeeded cleanly!
+        }
+
+        // Clean up recovery backup since Dexie write succeeded
+        localStorage.removeItem(`aevorin_recovery_${activeScene.id}`);
         setDirty(false);
       } catch (e) {
-        console.error("[Autosave] Failed to execute auto-save:", e);
+        console.error("[Autosave] Error during local Dexie write:", e);
       }
-    }, 2000); // 2 seconds debounce
+    }, 500); // Fast 500ms local write
 
     return () => clearTimeout(timer);
   }, [dirty, activeScene, projectId]);

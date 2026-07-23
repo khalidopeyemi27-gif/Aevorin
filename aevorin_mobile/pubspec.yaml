@@ -35,6 +35,24 @@ dependencies:
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
   webview_flutter: ^4.14.1
+  flutter_riverpod: ^3.3.2
+  dio: ^5.10.0
+  go_router: ^17.3.0
+  shared_preferences: ^2.5.5
+  flutter_secure_storage: ^10.3.1
+  supabase_flutter: ^2.16.0
+  flutter_dotenv: ^6.0.1
+  flutter_quill: 10.8.2
+  youtube_player_flutter: ^9.1.1
+  drift: ^2.34.2
+  sqlite3_flutter_libs: ^0.6.0+eol
+  path_provider: ^2.1.6
+  path: ^1.9.1
+  vsc_quill_delta_to_html: ^1.0.5
+  flutter_quill_delta_from_html: ^1.5.3
+  state_notifier: ^1.0.0
+  crypto: ^3.0.7
+  share_plus: ^13.2.1
 
 dev_dependencies:
   flutter_test:
@@ -46,6 +64,15 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
+  mocktail: ^1.0.5
+  drift_dev: ^2.34.0
+  build_runner: ^2.15.1
+
+# Force flutter_inappwebview (pulled in by youtube_player_flutter) to use a
+# version that is compatible with the modern Android Gradle Plugin.
+dependency_overrides:
+  flutter_inappwebview: ^6.1.5
+  intl: ^0.20.2
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -57,6 +84,10 @@ flutter:
   # included with your application, so that you can use the icons in
   # the material Icons class.
   uses-material-design: true
+
+  assets:
+    - .env
+
 
   # To add assets to your application, add an assets section, like this:
   # assets:

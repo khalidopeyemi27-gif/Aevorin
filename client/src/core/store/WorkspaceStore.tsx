@@ -86,7 +86,7 @@ export function WorkspaceStoreProvider({ children }: { children: React.ReactNode
     priority: BACK_PRIORITY.STORY_ROOM_TAB + 5,
     isActive: activeTab === "story" && tabHistory.length <= 1,
     onBack: () => {
-      setActiveTab("overview");
+      setActiveTabState("overview");
       return true;
     }
   });

@@ -11,11 +11,7 @@ export interface NavigationState {
   aevorin: true;
   level: "dashboard" | "workspace" | "story_room" | "editor";
   action: NavigationAction;
-  target?: {
-    type: string;
-    id: string;
-    [key: string]: any;
-  };
+  target?: Record<string, any>;
   timestamp: number;
 }
 

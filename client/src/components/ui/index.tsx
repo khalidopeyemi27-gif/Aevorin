@@ -10,9 +10,10 @@ export function Card({ children, className = "", style, onClick }: { children: R
 }
 
 // Button Component
-export function Button({ children, className = "", style, onClick, type = "button", disabled = false }: { children: React.ReactNode; className?: string; style?: React.CSSProperties; onClick?: () => void; type?: "button" | "submit" | "reset"; disabled?: boolean }) {
+export function Button({ children, className = "", style, onClick, type = "button", disabled = false, variant }: { children: React.ReactNode; className?: string; style?: React.CSSProperties; onClick?: () => void; type?: "button" | "submit" | "reset"; disabled?: boolean; variant?: "primary" | "secondary" | "danger" | "ghost" }) {
+  const variantClass = variant ? `ov-btn--${variant}` : "";
   return (
-    <button type={type} disabled={disabled} className={`ov-btn ${className}`} style={style} onClick={onClick}>
+    <button type={type} disabled={disabled} className={`ov-btn ${variantClass} ${className}`} style={style} onClick={onClick}>
       {children}
     </button>
   );

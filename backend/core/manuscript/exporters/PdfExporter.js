@@ -15,6 +15,10 @@ class PdfExporter extends IExporter {
   }
 
   async compile(project, scenes, destinationPath) {
+    const totalWordCount = scenes.reduce((acc, sc) => acc + (sc.word_count || sc.wordCount || 0), 0);
+    const authorName = project.authorName || "Author Name";
+    const year = new Date().getFullYear();
+
     let html = `<!DOCTYPE html>
 <html>
 <head>
@@ -33,27 +37,62 @@ class PdfExporter extends IExporter {
       padding: 0;
       font-size: 12pt;
     }
-    h1 {
+    .title-page {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      height: 100vh;
+      page-break-after: always;
+    }
+    .title-wrapper {
+      margin-top: 30vh;
+      margin-bottom: auto;
+    }
+    .book-title {
+      font-size: 32pt;
+      margin-bottom: 24pt;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      page-break-after: avoid;
+    }
+    .book-subtitle {
+      font-size: 16pt;
+      margin-bottom: 48pt;
+      font-style: italic;
+    }
+    .book-author {
+      font-size: 18pt;
+    }
+    .title-meta {
+      margin-bottom: 10vh;
+      font-size: 11pt;
+      color: #444;
+    }
+    h1.chapter-title {
       text-align: center;
       margin-top: 2in;
       font-size: 28pt;
-      page-break-after: always;
+      page-break-before: always;
+      page-break-after: avoid;
     }
-    h2 {
+    h2.scene-title {
       font-size: 18pt;
       margin-top: 24pt;
-      page-break-before: always;
       text-align: center;
-    }
-    h3 {
-      font-size: 13pt;
-      margin-top: 18pt;
-      color: #222;
+      page-break-after: avoid;
     }
     p {
       margin-bottom: 12pt;
       text-indent: 0.5in;
       text-align: justify;
+    }
+    .scene-divider {
+      text-align: center;
+      margin: 24pt 0;
+      font-size: 16pt;
+      letter-spacing: 4px;
     }
     @media print {
       body {
@@ -64,13 +103,36 @@ class PdfExporter extends IExporter {
   </style>
 </head>
 <body>
-  <h1>${project.name}</h1>
+  <div class="title-page">
+    <div class="title-wrapper">
+      <h1 class="book-title">${project.name}</h1>
+      <p class="book-subtitle">A Novel</p>
+      <p class="book-author">by<br/>${authorName}</p>
+    </div>
+    <div class="title-meta">
+      <p>Word Count:<br/>${totalWordCount.toLocaleString()}</p>
+      <p>Created:<br/>${year}</p>
+    </div>
+  </div>
 `;
 
     const sorted = [...scenes].sort((a, b) => a.order_index - b.order_index);
 
-    for (const scene of sorted) {
-      html += `  <h2>${scene.title}</h2>\n`;
+    let lastChapterId = null;
+
+    for (let i = 0; i < sorted.length; i++) {
+      const scene = sorted[i];
+      
+      // If chapter changed, print Chapter Title
+      if (scene.chapter_id !== lastChapterId) {
+        html += `  <h1 class="chapter-title">Chapter</h1>\n`;
+        lastChapterId = scene.chapter_id;
+      } else if (i > 0) {
+        // Not the first scene in chapter, print divider
+        html += `  <div class="scene-divider">* * *</div>\n`;
+      }
+
+      html += `  <h2 class="scene-title">${scene.title}</h2>\n`;
       let text = "";
       if (scene.content) {
         try {

@@ -611,6 +611,30 @@ router.post("/export", async (req, res) => {
   }
 });
 
+/**
+ * Download compiled manuscript
+ */
+router.get("/exports/:fileName", (req, res) => {
+  try {
+    const { id: projectId, fileName } = req.params;
+    const projectManager = kernel.getContainer().get("projectManager");
+    if (projectId !== projectManager.activeProjectId) {
+      return res.status(403).json({ error: "Project not active" });
+    }
+    const projectPath = projectManager.activeProjectPath;
+    const path = require("path");
+    const filePath = path.join(projectPath, "exports", fileName);
+    
+    if (!require("fs").existsSync(filePath)) {
+      return res.status(404).json({ error: "Export not found" });
+    }
+    
+    res.download(filePath);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 
 // ==========================================
 // AEVORIN Narrative Intelligence API Routes

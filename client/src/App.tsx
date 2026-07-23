@@ -5,6 +5,7 @@ import { BACK_PRIORITY } from "./core/navigation/BackPriority";
 import { NavigationProvider } from "./core/navigation/NavigationContext";
 import { NavigationDebugger } from "./components/workspace/NavigationDebugger";
 import { AuthOverlay, supabase } from "./components/auth/AuthOverlay";
+import { ProjectRepository } from "./database/repositories/projectRepository";
 
 const Dashboard = lazy(() => import("./core/Dashboard"));
 const Workspace = lazy(() => import("./core/Workspace"));
@@ -70,8 +71,8 @@ interface ProjectData {
 export default function App() {
   const [session, setSession] = useState<any>(null);
   const [status, setStatus] = useState<StatusData | null>(null);
-  const [projects, setProjects] = useState<ProjectData[]>([]);
-  const [loadedProject, setLoadedProject] = useState<ProjectData | null>(null);
+  const [projects, setProjects] = useState<any[]>([]);
+  const [loadedProject, setLoadedProject] = useState<any | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
@@ -99,18 +100,25 @@ export default function App() {
     } catch (err) {
       console.error(err);
       setStatus(null);
-      setError("Failed to connect to backend server. Make sure the server is running on port 5000.");
     }
   };
 
   const fetchProjects = async () => {
     try {
+      // 1. Load from Dexie local IndexedDB immediately (0ms)
+      const local = await ProjectRepository.getAll();
+      if (local.length > 0) {
+        setProjects(local);
+      }
+
+      // 2. Sync with backend API
       const res = await fetch(apiUrl("/api/projects"));
-      if (!res.ok) throw new Error("Projects listing failed");
-      const data = await res.json();
-      setProjects(data);
+      if (res.ok) {
+        const data = await res.json();
+        setProjects(data);
+      }
     } catch (err) {
-      console.error(err);
+      console.error("[Projects] API offline, operating in Dexie IndexedDB mode:", err);
     }
   };
 
@@ -121,17 +129,17 @@ export default function App() {
 
   const handleCreateProject = async (name: string, description: string, template: string, targetWordCount: number, coverImage: string | null) => {
     try {
-      const res = await fetch(apiUrl("/api/projects"), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, description, template, targetWordCount, coverImage }),
+      // Create locally in Dexie IndexedDB first (0ms response)
+      const newProject = await ProjectRepository.create({
+        name,
+        description,
+        template,
+        targetWordCount,
+        coverImage: coverImage || undefined
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to create project");
 
-      setSuccess(`Project "${data.name}" successfully created!`);
-      setLoadedProject(data);
-      await fetchStatus();
+      setSuccess(`Project "${newProject.name}" created in Local Sanctuary!`);
+      setLoadedProject(newProject);
       await fetchProjects();
     } catch (err: any) {
       throw err;

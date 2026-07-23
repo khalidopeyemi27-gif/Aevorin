@@ -9,7 +9,7 @@ interface SwipeOptions {
   ignoreSelector?: string; // CSS selector of elements to ignore swipes on
 }
 
-export function useSwipeGesture(ref: React.RefObject<HTMLElement>, options: SwipeOptions) {
+export function useSwipeGesture(ref: React.RefObject<HTMLElement | null>, options: SwipeOptions) {
   const touchStart = useRef<{ x: number; y: number } | null>(null);
   const touchEnd = useRef<{ x: number; y: number } | null>(null);
 

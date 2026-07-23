@@ -10,8 +10,8 @@ export function useLongPress(
   onClick?: (e: any) => void,
   { isPreventDefault = true, delay = 500 }: LongPressOptions = {}
 ) {
-  const timeout = useRef<NodeJS.Timeout>();
-  const target = useRef<EventTarget>();
+  const timeout = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const target = useRef<EventTarget | undefined>(undefined);
 
   const start = useCallback(
     (event: any) => {
@@ -52,7 +52,8 @@ export function useLongPress(
 }
 
 const preventDefault = (e: Event) => {
-  if (e.touches && e.touches.length < 2 && e.preventDefault) {
+  const te = e as TouchEvent;
+  if (te.touches && te.touches.length < 2 && e.preventDefault) {
     e.preventDefault();
   }
 };

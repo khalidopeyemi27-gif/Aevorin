@@ -15,73 +15,61 @@ class SearchService {
    * @returns {Promise<Array<object>>} Matching scenes.
    */
   async search(projectId, queryString) {
-    if (!queryString || queryString.trim() === "") {
-      return this.sceneRepository.findAllByProject(projectId);
-    }
-
     const allScenes = await this.sceneRepository.findAllByProject(projectId);
     const allEntities = await this.entityRepository.findAllByProject(projectId);
+    
+    // For V1.1 compatibility, we also need chapters. Since we don't have chapterRepository injected directly,
+    // we can either fetch them or rely on scene data. Ideally, we fetch them from DB.
+    // However, I can query the DB directly here or rely on injected chapter repo.
+    const db = require("../../kernel/ApplicationKernel").getContainer().get("databaseManager").activeDb;
+    const allChapters = db ? db.prepare("SELECT * FROM chapters").all() : [];
 
-    // 1. Parse Filter Criteria
-    let statusFilter = null;
-    let involvingFilter = null;
-    let cleanQuery = queryString;
+    let cleanQuery = (queryString || "").trim().toLowerCase();
+    
+    let results = [];
 
-    // Matches status:draft or status:in_progress
-    const statusMatch = queryString.match(/status:([^\s]+)/i);
-    if (statusMatch) {
-      statusFilter = statusMatch[1].toLowerCase();
-      cleanQuery = cleanQuery.replace(statusMatch[0], "");
+    // Map Chapters
+    for (const ch of allChapters) {
+      if (cleanQuery === "" || (ch.title && ch.title.toLowerCase().includes(cleanQuery))) {
+        results.push({
+          id: ch.id,
+          type: "CHAPTER",
+          title: ch.title,
+          content: ch.summary || "",
+          keywords: []
+        });
+      }
     }
 
-    // Matches involving:Marino
-    const involvingMatch = queryString.match(/involving:([^\s]+)/i);
-    if (involvingMatch) {
-      involvingFilter = involvingMatch[1].toLowerCase();
-      cleanQuery = cleanQuery.replace(involvingMatch[0], "");
+    // Map Scenes
+    for (const sc of allScenes) {
+      const textPool = `${sc.title} ${sc.summary} ${sc.content}`.toLowerCase();
+      if (cleanQuery === "" || textPool.includes(cleanQuery)) {
+        results.push({
+          id: sc.id,
+          type: "SCENE",
+          title: sc.title,
+          content: sc.content || sc.summary || "",
+          keywords: []
+        });
+      }
     }
 
-    cleanQuery = cleanQuery.trim().toLowerCase();
-
-    // 2. Perform filtering
-    return allScenes.filter(scene => {
-      // Status Filter match
-      if (statusFilter && scene.status.toLowerCase() !== statusFilter) {
-        return false;
+    // Map Entities (Characters, Items, Worlds, Factions)
+    for (const e of allEntities) {
+      const textPool = `${e.title} ${e.description} ${e.metadata_json}`.toLowerCase();
+      if (cleanQuery === "" || textPool.includes(cleanQuery)) {
+        results.push({
+          id: e.id,
+          type: e.type ? e.type.toUpperCase() : "ENTITY",
+          title: e.title,
+          content: e.description || "",
+          keywords: []
+        });
       }
+    }
 
-      // Involving Character/Entity filter match
-      if (involvingFilter) {
-        // Resolve entity ID from name
-        const matchEntities = allEntities.filter(e => e.title.toLowerCase().includes(involvingFilter));
-        const matchIds = matchEntities.map(e => e.id);
-
-        let entityMatch = false;
-
-        // Is POV
-        if (scene.pov_entity_id && matchIds.includes(scene.pov_entity_id)) {
-          entityMatch = true;
-        }
-
-        // Is name referenced in title, summary, or content
-        const searchPool = `${scene.title} ${scene.summary} ${scene.content}`.toLowerCase();
-        if (searchPool.includes(involvingFilter)) {
-          entityMatch = true;
-        }
-
-        if (!entityMatch) return false;
-      }
-
-      // Text keywords search match
-      if (cleanQuery !== "") {
-        const textPool = `${scene.title} ${scene.summary} ${scene.content}`.toLowerCase();
-        if (!textPool.includes(cleanQuery)) {
-          return false;
-        }
-      }
-
-      return true;
-    });
+    return results;
   }
 }
 
