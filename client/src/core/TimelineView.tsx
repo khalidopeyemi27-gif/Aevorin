@@ -105,6 +105,14 @@ export default function TimelineView({ projectId }: TimelineViewProps) {
     onConfirm: (val: string) => void;
   }>({ isOpen: false, title: "", onConfirm: () => {} });
 
+  const safeEvents = Array.isArray(events) ? events : [];
+  const safeEntities = Array.isArray(entities) ? entities : [];
+  const safeChapters = Array.isArray(chapters) ? chapters : [];
+  const safeScenes = Array.isArray(scenes) ? scenes : [];
+  const safeThreads = Array.isArray(threads) ? threads : [];
+  const safeReports = Array.isArray(reports) ? reports : [];
+  const safeRelationshipChanges = Array.isArray(relationshipChanges) ? relationshipChanges : [];
+
   useEffect(() => {
     fetchTimelineData();
   }, [projectId]);
@@ -133,15 +141,15 @@ export default function TimelineView({ projectId }: TimelineViewProps) {
         relRes.json()
       ]);
 
-      setEvents(evData || []);
-      setEntities(entData || []);
-      setReports(repData || []);
-      setChapters(chData || []);
-      setScenes(scData || []);
-      setThreads(thData || []);
-      setRelationshipChanges(relData || []);
+      setEvents(Array.isArray(evData) ? evData : []);
+      setEntities(Array.isArray(entData) ? entData : []);
+      setReports(Array.isArray(repData) ? repData : []);
+      setChapters(Array.isArray(chData) ? chData : []);
+      setScenes(Array.isArray(scData) ? scData : []);
+      setThreads(Array.isArray(thData) ? thData : Array.isArray(thData?.threads) ? thData.threads : []);
+      setRelationshipChanges(Array.isArray(relData) ? relData : []);
       
-      if (evData && evData.length > 0) {
+      if (Array.isArray(evData) && evData.length > 0) {
         setSelectedPosition(evData[evData.length - 1].position_key);
       }
     } catch (e) {
@@ -332,7 +340,7 @@ export default function TimelineView({ projectId }: TimelineViewProps) {
     }
     return { background: "rgba(52, 211, 153, 0.12)", color: "#34d399", border: "1px solid rgba(52,211,153,0.3)" };
   };
-  const chars = entities.filter(e => e.type === "character");
+  const chars = safeEntities.filter(e => e.type === "character");
 
   // Sort and build merged timeline feed items
   const buildTimelineFeed = () => {
@@ -348,14 +356,14 @@ export default function TimelineView({ projectId }: TimelineViewProps) {
       }
 
       if (activeFocus.type === "thread") {
-        const thread = threads.find(t => t.id === activeFocus.id);
+        const thread = safeThreads.find(t => t.id === activeFocus.id);
         return thread?.chapters?.some((tc: any) => tc.chapter_id === ch.id);
       }
 
       if (activeFocus.type === "character") {
-        const chEvents = events.filter(ev => ev.position_key.startsWith(prefix + "."));
+        const chEvents = safeEvents.filter(ev => ev.position_key.startsWith(prefix + "."));
         const hasCharChange = chEvents.some(ev => ev.changes?.some((c: any) => c.character_id === activeFocus.id));
-        const hasRelChange = relationshipChanges.some(rc => 
+        const hasRelChange = safeRelationshipChanges.some(rc => 
           rc.position_key?.startsWith(prefix + ".") && 
           (rc.character_a === activeFocus.id || rc.character_b === activeFocus.id)
         );
@@ -364,7 +372,7 @@ export default function TimelineView({ projectId }: TimelineViewProps) {
 
       if (activeFocus.type === "relationship") {
         const [charA, charB] = activeFocus.id.split("_");
-        return relationshipChanges.some(rc => 
+        return safeRelationshipChanges.some(rc => 
           rc.position_key?.startsWith(prefix + ".") && 
           ((rc.character_a === charA && rc.character_b === charB) || 
            (rc.character_a === charB && rc.character_b === charA))
@@ -376,7 +384,7 @@ export default function TimelineView({ projectId }: TimelineViewProps) {
 
     // If chapters are filtered in, we build a grouped hierarchy
     if (filters.includes("chapters")) {
-      const sortedChapters = [...chapters].sort((a, b) => {
+      const sortedChapters = [...safeChapters].sort((a, b) => {
         if (a.act_index !== b.act_index) return a.act_index - b.act_index;
         return a.order_index - b.order_index;
       });
@@ -388,12 +396,12 @@ export default function TimelineView({ projectId }: TimelineViewProps) {
 
         // 1. Nested scenes
         const chScenes = filters.includes("scenes")
-          ? scenes.filter(s => s.chapter_id === ch.id)
+          ? safeScenes.filter(s => s.chapter_id === ch.id)
           : [];
 
         // 2. Mapped events (world)
         let chEvents = filters.includes("world")
-          ? events.filter(ev => ev.position_key.startsWith(prefix + "."))
+          ? safeEvents.filter(ev => ev.position_key.startsWith(prefix + "."))
           : [];
 
         if (activeFocus?.type === "character") {
@@ -411,7 +419,7 @@ export default function TimelineView({ projectId }: TimelineViewProps) {
 
         // 4. Relationship Changes
         let chRels = filters.includes("relationships")
-          ? relationshipChanges.filter(rc => rc.position_key?.startsWith(prefix + "."))
+          ? safeRelationshipChanges.filter(rc => rc.position_key?.startsWith(prefix + "."))
           : [];
 
         if (activeFocus?.type === "character") {
@@ -426,7 +434,7 @@ export default function TimelineView({ projectId }: TimelineViewProps) {
 
         // 5. Mystery progress
         let chThreads = filters.includes("mysteries")
-          ? threads.filter(t => t.chapters?.some((tc: any) => tc.chapter_id === ch.id))
+          ? safeThreads.filter(t => t.chapters?.some((tc: any) => tc.chapter_id === ch.id))
           : [];
 
         if (activeFocus?.type === "thread") {

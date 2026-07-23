@@ -4,11 +4,12 @@ import { DeviceIdentityManager } from "../../sync/DeviceIdentity";
 
 export class TimelineRepository {
   public static async getEvents(projectId: string): Promise<TimelineEvent[]> {
-    return await db.timelineEvents
+    const events = await db.timelineEvents
       .where("projectId")
       .equals(projectId)
       .filter((e) => !e.deletedAt)
       .sortBy("position");
+    return Array.isArray(events) ? events : [];
   }
 
   public static async createEvent(data: {

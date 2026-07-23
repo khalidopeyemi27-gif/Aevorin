@@ -51,8 +51,8 @@ export default function StoryGraph({ projectId }: StoryGraphProps) {
       })
       .then((data) => {
         if (!active) return;
-        setRawNodes(data.nodes || []);
-        setRawEdges(data.edges || []);
+        setRawNodes(Array.isArray(data?.nodes) ? data.nodes : []);
+        setRawEdges(Array.isArray(data?.edges) ? data.edges : []);
         setLoading(false);
       })
       .catch((err) => {
@@ -67,19 +67,22 @@ export default function StoryGraph({ projectId }: StoryGraphProps) {
     };
   }, [projectId]);
 
+  const safeNodes = Array.isArray(rawNodes) ? rawNodes : [];
+  const safeEdges = Array.isArray(rawEdges) ? rawEdges : [];
+
   // Resolve active entity focus from the top of the stack
   const activeFocus = focusStack.length > 0 ? focusStack[focusStack.length - 1] : null;
 
   // Filter graph to only show nodes within degrees of separation (radial depth) from activeFocus
   const filteredData = React.useMemo(() => {
-    if (rawNodes.length === 0) return { nodes: [], edges: [] };
+    if (safeNodes.length === 0) return { nodes: [], edges: [] };
 
     // Find starting core node (focus node or fallback to highest importance character)
     let startNodeId = activeFocus?.id;
     if (!startNodeId) {
-      const topChar = rawNodes
-        .filter(n => n.entity_type === "character")
-        .sort((a, b) => b.importance - a.importance)[0];
+      const topChar = safeNodes
+        .filter(n => n && n.entity_type === "character")
+        .sort((a, b) => (b.importance || 0) - (a.importance || 0))[0];
       if (topChar) startNodeId = topChar.id;
     }
 

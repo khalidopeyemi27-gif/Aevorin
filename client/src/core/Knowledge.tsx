@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import { apiUrl } from "../lib/api";
 import { useSwipeGesture } from "../hooks/useSwipeGesture";
 import { EntityRepository } from "../database/repositories/entityRepository";
 import { PromptModal } from "../components/ui/PromptModal";
@@ -768,11 +769,24 @@ export default function Knowledge({
 
   const handleCharSave = async (meta: any, title: string, summary: string) => {
     if (!activeEntityId) return;
-    const res = await fetch(`/api/projects/${projectId}/entities/${activeEntityId}`, {
-      method: "PUT", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title, summary, metadata: meta }),
+    // 1. Write to local Dexie IndexedDB first (0ms persistence + Sync Queue)
+    await EntityRepository.updateEntity(activeEntityId, {
+      title,
+      summary,
+      metadataJson: JSON.stringify(meta)
     });
-    if (!res.ok) throw new Error("Failed to save");
+
+    // 2. Background push to API
+    try {
+      await fetch(apiUrl(`/api/projects/${projectId}/entities/${activeEntityId}`), {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title, summary, metadata: meta }),
+      });
+    } catch (err) {
+      console.warn("[Knowledge] Background API save queued for sync:", err);
+    }
+
     await onRefreshEntities();
   };
 
@@ -780,21 +794,31 @@ export default function Knowledge({
     if (!activeEntityId) return;
     setLoading(true);
     try {
-      const res = await fetch(`/api/projects/${projectId}/entities/${activeEntityId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: editTitle,
-          summary: editSummary,
-          metadata: metadataFields
-        }),
+      // 1. Write to local Dexie IndexedDB first (0ms persistence + Sync Queue)
+      await EntityRepository.updateEntity(activeEntityId, {
+        title: editTitle,
+        summary: editSummary,
+        metadataJson: JSON.stringify(metadataFields)
       });
-      if (!res.ok) throw new Error("Failed to update entity");
+
+      // 2. Background push to API
+      try {
+        await fetch(apiUrl(`/api/projects/${projectId}/entities/${activeEntityId}`), {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title: editTitle,
+            summary: editSummary,
+            metadata: metadataFields
+          }),
+        });
+      } catch (err) {
+        console.warn("[Knowledge] Background API save queued for sync:", err);
+      }
+
       await onRefreshEntities();
-      alert("Profile updated successfully!");
     } catch (e) {
-      console.error(e);
-      alert("Error updating profile");
+      console.error("[Knowledge] Update error:", e);
     } finally {
       setLoading(false);
     }
@@ -804,10 +828,18 @@ export default function Knowledge({
     if (!activeEntityId || !confirm("Are you sure you want to delete this profile?")) return;
     setLoading(true);
     try {
-      const res = await fetch(`/api/projects/${projectId}/entities/${activeEntityId}`, {
-        method: "DELETE"
-      });
-      if (!res.ok) throw new Error("Failed to delete entity");
+      // 1. Soft delete in local Dexie IndexedDB (0ms persistence + Sync Queue)
+      await EntityRepository.softDeleteEntity(activeEntityId);
+
+      // 2. Background API call
+      try {
+        await fetch(apiUrl(`/api/projects/${projectId}/entities/${activeEntityId}`), {
+          method: "DELETE"
+        });
+      } catch (err) {
+        console.warn("[Knowledge] Background API delete queued for sync:", err);
+      }
+
       setActiveEntityId(null);
       await onRefreshEntities();
     } catch (e) {

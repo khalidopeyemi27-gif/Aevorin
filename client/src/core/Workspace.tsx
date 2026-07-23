@@ -722,11 +722,15 @@ export default function Workspace({
       <main className="workspace-main">
 
         {/* Story Room header — only for story-room tabs */}
-        {(activeTab === "story" || activeTab === "character" || activeTab === "world" || activeTab === "timeline" || activeTab === "history" || activeTab === "rules") ? (
+        {(activeTab === "story" || activeTab === "character" || activeTab === "world" || activeTab === "timeline" || activeTab === "history" || activeTab === "rules" || activeTab === "graph" || activeTab === "journey") ? (
           <div style={{
-            background: "#2d2d2d",
-            borderBottom: "1px solid rgba(255,255,255,0.05)",
-            padding: "1.25rem 1.5rem 0 1.5rem"
+            position: "sticky",
+            top: 0,
+            zIndex: 100,
+            background: "#242322",
+            borderBottom: "1px solid rgba(255,255,255,0.06)",
+            padding: "1rem 1.5rem 0.85rem 1.5rem",
+            backdropFilter: "blur(12px)"
           }}>
             {/* Top Row: title & controls */}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.85rem" }}>
@@ -743,37 +747,62 @@ export default function Workspace({
               </div>
               <button
                 onClick={() => nav("manuscript")}
-                style={{ background: "#9f8ad0", color: "#fff", border: "none", padding: "0.5rem 1rem", borderRadius: "8px", fontSize: "0.85rem", fontWeight: 700, cursor: "pointer", boxShadow: "0 3px 10px rgba(159,138,208,0.25)" }}
+                style={{ background: "linear-gradient(135deg, #9f8ad0, #b46cff)", color: "#fff", border: "none", padding: "0.5rem 1.1rem", borderRadius: "20px", fontSize: "0.85rem", fontWeight: 700, cursor: "pointer", boxShadow: "0 3px 12px rgba(159,138,208,0.35)" }}
               >✏️ Write</button>
             </div>
 
-            {/* Sub-tabs */}
-            <div className="story-room-sub-tabs" style={{ display: "flex", gap: "1.25rem", overflowX: "auto", paddingBottom: "0.55rem", scrollbarWidth: "none" }}>
+            {/* Segmented Pill Navigation Control */}
+            <div 
+              className="segmented-pill-nav"
+              style={{
+                display: "flex",
+                gap: "0.4rem",
+                background: "rgba(15, 14, 13, 0.6)",
+                padding: "0.3rem",
+                borderRadius: "14px",
+                border: "1px solid rgba(255,255,255,0.06)",
+                overflowX: "auto",
+                scrollbarWidth: "none"
+              }}
+            >
               {[
-                { id: "story",     label: "Outline",    icon: "≡" },
-                { id: "timeline",  label: "Timeline",   icon: "⏳" },
-                { id: "graph",     label: "Story Graph", icon: "🕸️" },
-                { id: "journey",   label: "Journey",    icon: "👤" },
+                { id: "story",     label: "Outline",    icon: "📖" },
                 { id: "character", label: "Characters", icon: "👥" },
-                { id: "world",     label: "World",      icon: "📍" }
-              ].map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => nav(tab.id as any)}
-                  style={{
-                    background: "none", border: "none",
-                    borderBottom: activeTab === tab.id ? "3px solid #e08e6d" : "3px solid transparent",
-                    color: activeTab === tab.id ? "#e08e6d" : "rgba(255,255,255,0.45)",
-                    padding: "0.5rem 0.1rem", fontSize: "0.88rem",
-                    fontWeight: activeTab === tab.id ? 700 : 500,
-                    cursor: "pointer", whiteSpace: "nowrap",
-                    display: "flex", alignItems: "center", gap: "0.35rem",
-                    transition: "color 0.2s, border-color 0.2s"
-                  }}
-                >
-                  <span>{tab.icon}</span><span>{tab.label}</span>
-                </button>
-              ))}
+                { id: "world",     label: "World",      icon: "🌍" },
+                { id: "timeline",  label: "Timeline",   icon: "🕒" },
+                { id: "graph",     label: "Graph",      icon: "🕸️" },
+                { id: "journey",   label: "Journey",    icon: "🧭" }
+              ].map((tab) => {
+                const isActive = activeTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => nav(tab.id as any)}
+                    style={{
+                      flex: "1 0 auto",
+                      height: "44px",
+                      padding: "0 1.1rem",
+                      borderRadius: "10px",
+                      background: isActive ? "linear-gradient(135deg, rgba(224, 142, 109, 0.22), rgba(224, 142, 109, 0.12))" : "transparent",
+                      color: isActive ? "#e08e6d" : "rgba(255, 255, 255, 0.55)",
+                      border: isActive ? "1px solid rgba(224, 142, 109, 0.4)" : "1px solid transparent",
+                      fontSize: "0.88rem",
+                      fontWeight: isActive ? 700 : 500,
+                      cursor: "pointer",
+                      whiteSpace: "nowrap",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: "0.5rem",
+                      transition: "all 0.2s ease",
+                      boxShadow: isActive ? "0 4px 14px rgba(224, 142, 109, 0.2)" : "none"
+                    }}
+                  >
+                    <span style={{ fontSize: "1.05rem" }}>{tab.icon}</span>
+                    <span>{tab.label}</span>
+                  </button>
+                );
+              })}
             </div>
           </div>
 
