@@ -148,19 +148,39 @@ export default function App() {
 
   const handleLoadProject = async (projectName: string) => {
     try {
+      setError(null);
+      // 1. Load from local Dexie IndexedDB repository first (0ms response)
+      const localProject = await ProjectRepository.getByName(projectName);
+      if (localProject) {
+        setLoadedProject(localProject);
+        setSuccess(`Loaded project "${localProject.name}"!`);
+        return;
+      }
+
+      // 2. Fallback to API if not found locally
       const res = await fetch(apiUrl("/api/projects/load"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: projectName }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to load project");
+      if (!res.ok) {
+        if (res.status === 401) {
+          console.warn("[App] Auth token expired, opening local sanctuary instance");
+          const created = await ProjectRepository.create({ name: projectName });
+          setLoadedProject(created);
+          setSuccess(`Loaded project "${created.name}"!`);
+          return;
+        }
+        throw new Error(data.error || "Failed to load project");
+      }
 
       setSuccess(`Loaded project "${data.name}"!`);
       setLoadedProject(data);
       await fetchStatus();
     } catch (err: any) {
-      setError(err.message);
+      console.error("[App] Failed loading project:", err);
+      setError(err.message || "Unable to load project");
     }
   };
 
