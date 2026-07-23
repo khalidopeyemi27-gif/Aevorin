@@ -8,7 +8,7 @@ import { useToast } from "../components/providers/ToastProvider";
 import { computeDiff } from "../lib/diff";
 import { useActivityTracker } from "../hooks/useActivityTracker";
 import { useLongPress } from "../hooks/useLongPress";
-import { BottomSheet, Button } from "../components/ui";
+import { BottomSheet, Button, PromptModal } from "../components/ui";
 import { db } from "../lib/db";
 import { SyncManager } from "../services/sync/SyncManager";
 
@@ -167,6 +167,15 @@ export default function Manuscript({
   const [renamingChapterId, setRenamingChapterId] = useState<string | null>(null);
   const [renameTitle, setRenameTitle] = useState("");
   const [contextMenuContext, setContextMenuContext] = useState<{ type: "chapter" | "scene", id: string, title: string } | null>(null);
+
+  const [promptModal, setPromptModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    subtitle?: string;
+    placeholder?: string;
+    confirmText?: string;
+    onConfirm: (val: string) => void;
+  }>({ isOpen: false, title: "", onConfirm: () => {} });
 
   // Search state
   const [searchQuery, setSearchQuery] = useState("");
@@ -780,44 +789,62 @@ export default function Manuscript({
       handleSave();
       onClearTriggerAction?.();
     } else if (triggerAction === "create-chapter") {
-      const title = window.prompt("Enter new chapter title:");
-      if (title && title.trim()) {
-        (async () => {
-          try {
-            const res = await fetch(`/api/projects/${projectId}/chapters`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ title: title.trim() }),
-            });
-            if (!res.ok) throw new Error("Failed to create chapter");
-            setNewChapterTitle("");
-            await onRefreshChapters();
-          } catch (e) {
-            console.error(e);
+      setPromptModal({
+        isOpen: true,
+        title: "New Chapter",
+        subtitle: "Enter a title for your new chapter",
+        placeholder: "e.g. Chapter 1: The Gathering Storm",
+        confirmText: "Create Chapter",
+        onConfirm: (title) => {
+          setPromptModal((prev) => ({ ...prev, isOpen: false }));
+          if (title.trim()) {
+            (async () => {
+              try {
+                const res = await fetch(`/api/projects/${projectId}/chapters`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ title: title.trim() }),
+                });
+                if (!res.ok) throw new Error("Failed to create chapter");
+                setNewChapterTitle("");
+                await onRefreshChapters();
+              } catch (e) {
+                console.error(e);
+              }
+            })();
           }
-        })();
-      }
+        }
+      });
       onClearTriggerAction?.();
     } else if (triggerAction === "create-scene") {
-      const title = window.prompt("Enter new scene title:");
-      if (title && title.trim()) {
-        const chapterId = chapters.length > 0 ? chapters[0].id : null;
-        (async () => {
-          try {
-            const res = await fetch(`/api/projects/${projectId}/scenes`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ chapterId, title: title.trim() }),
-            });
-            const data = await res.json();
-            if (!res.ok) throw new Error("Failed to create scene");
-            await onRefreshScenes();
-            setActiveSceneId(data.id);
-          } catch (e) {
-            console.error(e);
+      setPromptModal({
+        isOpen: true,
+        title: "New Scene",
+        subtitle: "Enter a title for your new manuscript scene",
+        placeholder: "e.g. Scene 1 - Midnight Arrival",
+        confirmText: "Create Scene",
+        onConfirm: (title) => {
+          setPromptModal((prev) => ({ ...prev, isOpen: false }));
+          if (title.trim()) {
+            const chapterId = chapters.length > 0 ? chapters[0].id : null;
+            (async () => {
+              try {
+                const res = await fetch(`/api/projects/${projectId}/scenes`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ chapterId, title: title.trim() }),
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error("Failed to create scene");
+                await onRefreshScenes();
+                setActiveSceneId(data.id);
+              } catch (e) {
+                console.error(e);
+              }
+            })();
           }
-        })();
-      }
+        }
+      });
       onClearTriggerAction?.();
     }
   }, [triggerAction, chapters, projectId]);
@@ -1071,21 +1098,33 @@ export default function Manuscript({
   };
 
   const handleAddSceneToChapter = async (chapterId: string) => {
-    const title = window.prompt("Enter scene title:");
-    if (!title || !title.trim()) return;
-    try {
-      const res = await fetch(`/api/projects/${projectId}/scenes`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ chapterId, title: title.trim() }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error("Failed to create scene");
-      await onRefreshScenes();
-      setActiveSceneId(data.id);
-    } catch (e) {
-      console.error("[Add Scene to Chapter] Failed:", e);
-    }
+    setPromptModal({
+      isOpen: true,
+      title: "New Scene",
+      subtitle: "Enter a title for your new scene in this chapter",
+      placeholder: "e.g. Scene 1",
+      confirmText: "Add Scene",
+      onConfirm: (title) => {
+        setPromptModal((prev) => ({ ...prev, isOpen: false }));
+        if (title.trim()) {
+          (async () => {
+            try {
+              const res = await fetch(`/api/projects/${projectId}/scenes`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ chapterId, title: title.trim() }),
+              });
+              const data = await res.json();
+              if (!res.ok) throw new Error("Failed to create scene");
+              await onRefreshScenes();
+              setActiveSceneId(data.id);
+            } catch (e) {
+              console.error("[Add Scene to Chapter] Failed:", e);
+            }
+          })();
+        }
+      }
+    });
   };
 
   const getProgressPercentage = () => {
@@ -1955,6 +1994,16 @@ export default function Manuscript({
           </Button>
         </div>
       </BottomSheet>
+
+      <PromptModal
+        isOpen={promptModal.isOpen}
+        title={promptModal.title}
+        subtitle={promptModal.subtitle}
+        placeholder={promptModal.placeholder}
+        confirmText={promptModal.confirmText}
+        onConfirm={promptModal.onConfirm}
+        onCancel={() => setPromptModal((prev) => ({ ...prev, isOpen: false }))}
+      />
     </div>
   );
 }

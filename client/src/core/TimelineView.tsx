@@ -2,6 +2,7 @@ import { apiUrl } from "../lib/api";
 import React, { useState, useEffect } from "react";
 import { useToast } from "../components/providers/ToastProvider";
 import { useStoryRoom } from "./StoryRoom/StoryRoomContext";
+import { PromptModal } from "../components/ui/PromptModal";
 
 interface FocusedEntity {
   type: "character" | "thread" | "relationship" | "theme";
@@ -94,6 +95,15 @@ export default function TimelineView({ projectId }: TimelineViewProps) {
   const [relCharB, setRelCharB] = useState("");
   const [relNew, setRelNew] = useState("");
   const [relReason, setRelReason] = useState("");
+
+  const [promptModal, setPromptModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    subtitle?: string;
+    placeholder?: string;
+    confirmText?: string;
+    onConfirm: (val: string) => void;
+  }>({ isOpen: false, title: "", onConfirm: () => {} });
 
   useEffect(() => {
     fetchTimelineData();
@@ -280,22 +290,33 @@ export default function TimelineView({ projectId }: TimelineViewProps) {
   };
 
   const handleIgnoreReport = async (reportId: string) => {
-    const reason = window.prompt("Enter reason for ignoring this contradiction (optional):") || "";
-    try {
-      const res = await fetch(apiUrl(`/api/projects/${projectId}/canon/reports/${reportId}/status`), {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "ignored", ignoredReason: reason })
-      });
-      if (!res.ok) throw new Error("Failed to ignore continuity warning");
-      showToast("Continuity report marked as ignored", "success");
-      const repRes = await fetch(apiUrl(`/api/projects/${projectId}/canon/reports`));
-      const repData = await repRes.json();
-      setReports(repData || []);
-    } catch (e) {
-      console.error(e);
-      showToast("Unable to ignore report", "error");
-    }
+    setPromptModal({
+      isOpen: true,
+      title: "Ignore Contradiction Warning",
+      subtitle: "Enter an optional reason for ignoring this continuity warning",
+      placeholder: "e.g. Intentional plot twist",
+      confirmText: "Ignore Warning",
+      onConfirm: (reason) => {
+        setPromptModal((prev) => ({ ...prev, isOpen: false }));
+        (async () => {
+          try {
+            const res = await fetch(apiUrl(`/api/projects/${projectId}/canon/reports/${reportId}/status`), {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ status: "ignored", ignoredReason: reason })
+            });
+            if (!res.ok) throw new Error("Failed to ignore continuity warning");
+            showToast("Continuity report marked as ignored", "success");
+            const repRes = await fetch(apiUrl(`/api/projects/${projectId}/canon/reports`));
+            const repData = await repRes.json();
+            setReports(repData || []);
+          } catch (e) {
+            console.error(e);
+            showToast("Unable to ignore report", "error");
+          }
+        })();
+      }
+    });
   };
 
   const getImportanceBadgeStyle = (imp: string) => {
@@ -1737,6 +1758,16 @@ export default function TimelineView({ projectId }: TimelineViewProps) {
         )}
 
       </div>
+
+      <PromptModal
+        isOpen={promptModal.isOpen}
+        title={promptModal.title}
+        subtitle={promptModal.subtitle}
+        placeholder={promptModal.placeholder}
+        confirmText={promptModal.confirmText}
+        onConfirm={promptModal.onConfirm}
+        onCancel={() => setPromptModal((prev) => ({ ...prev, isOpen: false }))}
+      />
     </div>
   );
 }

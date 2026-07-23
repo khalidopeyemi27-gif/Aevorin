@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useSwipeGesture } from "../hooks/useSwipeGesture";
 import { EntityRepository } from "../database/repositories/entityRepository";
+import { PromptModal } from "../components/ui/PromptModal";
 
 interface Entity {
   id: string;
@@ -655,6 +656,15 @@ export default function Knowledge({
   const [selectedWorldCategory, setSelectedWorldCategory] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
+  const [promptModal, setPromptModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    subtitle?: string;
+    placeholder?: string;
+    confirmText?: string;
+    onConfirm: (val: string) => void;
+  }>({ isOpen: false, title: "", onConfirm: () => {} });
+
   useEffect(() => {
     setSelectedWorldCategory(null);
     setActiveEntityId(null);
@@ -791,67 +801,94 @@ export default function Knowledge({
   // Handle triggerAction events dispatched from Command Palette
   useEffect(() => {
     if (triggerAction === "create-character") {
-      const title = window.prompt("Enter new character name:");
-      if (title && title.trim()) {
-        (async () => {
-          try {
-            const meta = { age: "", appearance: "", traits: "", motivation: "" };
-            const newEnt = await EntityRepository.createEntity({
-              projectId,
-              type: "character",
-              title: title.trim(),
-              summary: "",
-              metadataJson: JSON.stringify(meta)
-            });
-            await onRefreshEntities();
-            handleEntitySelect({ ...newEnt, metadata: meta });
-          } catch (e) {
-            console.error(e);
+      setPromptModal({
+        isOpen: true,
+        title: "New Character",
+        subtitle: "Enter a name for your new character profile",
+        placeholder: "e.g. Arin Thorne",
+        confirmText: "Create Character",
+        onConfirm: (title) => {
+          setPromptModal((prev) => ({ ...prev, isOpen: false }));
+          if (title.trim()) {
+            (async () => {
+              try {
+                const meta = { age: "", appearance: "", traits: "", motivation: "" };
+                const newEnt = await EntityRepository.createEntity({
+                  projectId,
+                  type: "character",
+                  title: title.trim(),
+                  summary: "",
+                  metadataJson: JSON.stringify(meta)
+                });
+                await onRefreshEntities();
+                handleEntitySelect({ ...newEnt, metadata: meta });
+              } catch (e) {
+                console.error(e);
+              }
+            })();
           }
-        })();
-      }
+        }
+      });
       onClearTriggerAction?.();
     } else if (triggerAction === "create-location") {
-      const title = window.prompt("Enter new world place name:");
-      if (title && title.trim()) {
-        (async () => {
-          try {
-            const meta = { geography: "", description: "", climate: "", history: "" };
-            const newEnt = await EntityRepository.createEntity({
-              projectId,
-              type: "world",
-              title: title.trim(),
-              summary: "",
-              metadataJson: JSON.stringify(meta)
-            });
-            await onRefreshEntities();
-            handleEntitySelect({ ...newEnt, metadata: meta });
-          } catch (e) {
-            console.error(e);
+      setPromptModal({
+        isOpen: true,
+        title: "New Location",
+        subtitle: "Enter a name for your new world location",
+        placeholder: "e.g. Whispering Citadel",
+        confirmText: "Create Location",
+        onConfirm: (title) => {
+          setPromptModal((prev) => ({ ...prev, isOpen: false }));
+          if (title.trim()) {
+            (async () => {
+              try {
+                const meta = { geography: "", description: "", climate: "", history: "" };
+                const newEnt = await EntityRepository.createEntity({
+                  projectId,
+                  type: "world",
+                  title: title.trim(),
+                  summary: "",
+                  metadataJson: JSON.stringify(meta)
+                });
+                await onRefreshEntities();
+                handleEntitySelect({ ...newEnt, metadata: meta });
+              } catch (e) {
+                console.error(e);
+              }
+            })();
           }
-        })();
-      }
+        }
+      });
       onClearTriggerAction?.();
     } else if (triggerAction === "create-item") {
-      const title = window.prompt("Enter new timeline event name:");
-      if (title && title.trim()) {
-        (async () => {
-          try {
-            const meta = { date: "", event: "", description: "", impact: "" };
-            const newEnt = await EntityRepository.createEntity({
-              projectId,
-              type: "timeline",
-              title: title.trim(),
-              summary: "",
-              metadataJson: JSON.stringify(meta)
-            });
-            await onRefreshEntities();
-            handleEntitySelect({ ...newEnt, metadata: meta });
-          } catch (e) {
-            console.error(e);
+      setPromptModal({
+        isOpen: true,
+        title: "New Event / Item",
+        subtitle: "Enter a title for this timeline event or artifact",
+        placeholder: "e.g. The Great Eclipse",
+        confirmText: "Create Item",
+        onConfirm: (title) => {
+          setPromptModal((prev) => ({ ...prev, isOpen: false }));
+          if (title.trim()) {
+            (async () => {
+              try {
+                const meta = { date: "", event: "", description: "", impact: "" };
+                const newEnt = await EntityRepository.createEntity({
+                  projectId,
+                  type: "timeline",
+                  title: title.trim(),
+                  summary: "",
+                  metadataJson: JSON.stringify(meta)
+                });
+                await onRefreshEntities();
+                handleEntitySelect({ ...newEnt, metadata: meta });
+              } catch (e) {
+                console.error(e);
+              }
+            })();
           }
-        })();
-      }
+        }
+      });
       onClearTriggerAction?.();
     }
   }, [triggerAction, projectId]);
@@ -903,7 +940,22 @@ export default function Knowledge({
               <div style={{ fontSize: "1rem", fontWeight: 700, color: "#e08e6d", fontFamily: "'Source Serif 4',Georgia,serif" }}>Characters</div>
             </div>
             <button
-              onClick={() => { const t = window.prompt("Character name:"); if (t?.trim()) { setNewTitle(t.trim()); setTimeout(() => (document.getElementById("char-submit-trigger") as HTMLButtonElement)?.click(), 50); } }}
+              onClick={() => {
+                setPromptModal({
+                  isOpen: true,
+                  title: "New Character",
+                  subtitle: "Enter a name for your new character profile",
+                  placeholder: "e.g. Arin Thorne",
+                  confirmText: "Create Character",
+                  onConfirm: (t) => {
+                    setPromptModal((prev) => ({ ...prev, isOpen: false }));
+                    if (t.trim()) {
+                      setNewTitle(t.trim());
+                      setTimeout(() => (document.getElementById("char-submit-trigger") as HTMLButtonElement)?.click(), 50);
+                    }
+                  }
+                });
+              }}
               style={{ width: "32px", height: "32px", borderRadius: "50%", background: "#9f8ad0", border: "none", color: "#fff", fontSize: "1.3rem", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 3px 12px rgba(159,138,208,0.4)" }}
             >+</button>
           </div>
@@ -1159,15 +1211,23 @@ export default function Knowledge({
             <button
               onClick={() => {
                 const promptName = activeTab === "world" ? (selectedWorldCategory || "world element") : activeTab;
-                const title = window.prompt(`Enter name for new ${promptName}:`);
-                if (title && title.trim()) {
-                  setNewTitle(title.trim());
-                  // We simulate form submission helper
-                  setTimeout(() => {
-                    const submitBtn = document.getElementById("hidden-submit-trigger");
-                    if (submitBtn) submitBtn.click();
-                  }, 100);
-                }
+                setPromptModal({
+                  isOpen: true,
+                  title: `New ${promptName.slice(0, 1).toUpperCase() + promptName.slice(1)}`,
+                  subtitle: `Enter a name for your new ${promptName}`,
+                  placeholder: `e.g. ${promptName === 'places' ? 'Eldoria City' : 'Name'}`,
+                  confirmText: "Create Profile",
+                  onConfirm: (title) => {
+                    setPromptModal((prev) => ({ ...prev, isOpen: false }));
+                    if (title.trim()) {
+                      setNewTitle(title.trim());
+                      setTimeout(() => {
+                        const submitBtn = document.getElementById("hidden-submit-trigger");
+                        if (submitBtn) submitBtn.click();
+                      }, 100);
+                    }
+                  }
+                });
               }}
               style={{
                 position: "absolute",
@@ -1376,6 +1436,16 @@ export default function Knowledge({
           )}
         </main>
       </div>
+
+      <PromptModal
+        isOpen={promptModal.isOpen}
+        title={promptModal.title}
+        subtitle={promptModal.subtitle}
+        placeholder={promptModal.placeholder}
+        confirmText={promptModal.confirmText}
+        onConfirm={promptModal.onConfirm}
+        onCancel={() => setPromptModal((prev) => ({ ...prev, isOpen: false }))}
+      />
 
       <style>{`
         @media (max-width: 767px) {

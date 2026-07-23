@@ -146,3 +146,6 @@ export function FAB({ icon, onClick, className = "" }: { icon: React.ReactNode; 
     </button>
   );
 }
+
+export { PromptModal } from "./PromptModal";
+
