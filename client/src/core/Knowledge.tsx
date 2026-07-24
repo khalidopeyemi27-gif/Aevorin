@@ -963,10 +963,12 @@ export default function Knowledge({
   const filteredEntities = entities.filter(e => {
     const eType = (e.type || "").toLowerCase();
     const targetType = (activeTab || "").toLowerCase();
-    if (eType !== targetType) return false;
+    const isWorldType = targetType === "world" && (eType === "world" || eType === "location" || eType === "places" || eType === "world_building");
+    if (eType !== targetType && !isWorldType) return false;
     if (targetType === "world") {
       if (!selectedWorldCategory) return false;
-      return (e.metadata?.subCategory || "").toLowerCase() === selectedWorldCategory.toLowerCase();
+      const subCat = (e.metadata?.subCategory || "places").toLowerCase();
+      return subCat === selectedWorldCategory.toLowerCase();
     }
     return true;
   });
@@ -1195,53 +1197,63 @@ export default function Knowledge({
                   { id: "history", label: "History", desc: "Epochs & Timelines", icon: "📜" },
                   { id: "rules", label: "Rules", desc: "World Laws & Constraints", icon: "⚖️" },
                   { id: "magic", label: "Magic", desc: "Magic Systems & Limits", icon: "🔮" }
-                ].map((cat) => (
-                  <div
-                    key={cat.id}
-                    onClick={() => {
-                      setSelectedWorldCategory(cat.id);
-                      setActiveEntityId(null);
-                    }}
-                    style={{
-                      background: "#3e3d3c",
-                      border: "1px solid rgba(255,255,255,0.04)",
-                      borderRadius: "8px",
-                      padding: "1.15rem 1rem",
-                      display: "flex",
-                      flexDirection: "column",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      gap: "0.5rem",
-                      cursor: "pointer",
-                      gridColumn: cat.id === "magic" ? "span 2" : "auto",
-                      transition: "transform 0.15s ease",
-                      textAlign: "center"
-                    }}
-                    className="story-bible-card"
-                  >
-                    <div style={{
-                      width: "48px",
-                      height: "48px",
-                      background: "#343332",
-                      borderRadius: "50%",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      fontSize: "1.45rem",
-                      color: "#e08e6d"
-                    }}>
-                      {cat.icon}
+                ].map((cat) => {
+                  const catCount = entities.filter(e => {
+                    const eType = (e.type || "").toLowerCase();
+                    const isWorld = eType === "world" || eType === "location" || eType === "places" || eType === "world_building";
+                    if (!isWorld) return false;
+                    const subCat = (e.metadata?.subCategory || "places").toLowerCase();
+                    return subCat === cat.id;
+                  }).length;
+
+                  return (
+                    <div
+                      key={cat.id}
+                      onClick={() => {
+                        setSelectedWorldCategory(cat.id);
+                        setActiveEntityId(null);
+                      }}
+                      style={{
+                        background: "#3e3d3c",
+                        border: "1px solid rgba(255,255,255,0.04)",
+                        borderRadius: "8px",
+                        padding: "1.15rem 1rem",
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: "0.5rem",
+                        cursor: "pointer",
+                        gridColumn: cat.id === "magic" ? "span 2" : "auto",
+                        transition: "transform 0.15s ease",
+                        textAlign: "center"
+                      }}
+                      className="story-bible-card"
+                    >
+                      <div style={{
+                        width: "48px",
+                        height: "48px",
+                        background: "#343332",
+                        borderRadius: "50%",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontSize: "1.45rem",
+                        color: "#e08e6d"
+                      }}>
+                        {cat.icon}
+                      </div>
+                      <div style={{ display: "flex", flexDirection: "column", gap: "0.15rem" }}>
+                        <span style={{ fontSize: "1rem", fontWeight: 700, color: "#fff" }}>
+                          {cat.label} {catCount > 0 && <span style={{ fontSize: "0.75rem", color: "#e08e6d", fontWeight: 600 }}>({catCount})</span>}
+                        </span>
+                        <span style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.35)" }}>
+                          {cat.desc}
+                        </span>
+                      </div>
                     </div>
-                    <div style={{ display: "flex", flexDirection: "column", gap: "0.15rem" }}>
-                      <span style={{ fontSize: "1rem", fontWeight: 700, color: "#fff" }}>
-                        {cat.label}
-                      </span>
-                      <span style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.35)" }}>
-                        {cat.desc}
-                      </span>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             ) : (
               /* Display normal cards for active subcategory */
