@@ -415,9 +415,9 @@ export default function StoryGraph({ projectId }: StoryGraphProps) {
         <g transform={`translate(${pan.x}, ${pan.y}) scale(${zoom})`}>
           
           {/* 1. Edges / Links */}
-          {edges.map((edge) => {
-            const sourceNode = nodes.find(n => n.id === edge.source);
-            const targetNode = nodes.find(n => n.id === edge.target);
+          {(Array.isArray(edges) ? edges : []).map((edge) => {
+            const sourceNode = (Array.isArray(nodes) ? nodes : []).find(n => n.id === edge.source);
+            const targetNode = (Array.isArray(nodes) ? nodes : []).find(n => n.id === edge.target);
             if (!sourceNode || !targetNode) return null;
 
             return (
@@ -445,7 +445,7 @@ export default function StoryGraph({ projectId }: StoryGraphProps) {
           })}
 
           {/* 2. Nodes */}
-          {nodes.map((node) => {
+          {(Array.isArray(nodes) ? nodes : []).map((node) => {
             const isCenter = node.id === activeFocus?.id;
             const isSelected = node.id === selectedNodeId;
             const color = getNodeColor(node.type);
