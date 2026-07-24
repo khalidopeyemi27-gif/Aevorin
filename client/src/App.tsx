@@ -77,17 +77,24 @@ export default function App() {
   const [success, setSuccess] = useState<string | null>(null);
 
   useEffect(() => {
+    const savedGuest = localStorage.getItem("aevorin_guest_session");
+    if (savedGuest) {
+      try {
+        setSession(JSON.parse(savedGuest));
+      } catch (err) {}
+    }
+
     supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-    });
+      if (session) setSession(session);
+    }).catch(() => {});
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
+      if (session) setSession(session);
     });
 
-    return () => subscription.unsubscribe();
+    return () => subscription?.unsubscribe();
   }, []);
 
   const fetchStatus = async () => {

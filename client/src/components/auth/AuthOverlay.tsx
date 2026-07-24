@@ -37,10 +37,26 @@ export function AuthOverlay({ onLogin }: AuthOverlayProps) {
         }
       }
     } catch (err: any) {
-      setError(err.message || "An authentication error occurred.");
+      const msg = err.message || "An authentication error occurred.";
+      if (msg.includes("Failed to fetch") || msg.includes("FetchError") || msg.includes("placeholder")) {
+        setError("Cloud Auth service is offline or unconfigured. You can continue below in Local Offline Writing Mode with 100% IndexedDB persistence!");
+      } else {
+        setError(msg);
+      }
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleGuestLogin = () => {
+    const guestSession = {
+      user: {
+        id: "guest_author",
+        email: email.trim() || "author@aevorin.local"
+      }
+    };
+    localStorage.setItem("aevorin_guest_session", JSON.stringify(guestSession));
+    onLogin(guestSession);
   };
 
   return (
@@ -95,14 +111,14 @@ export function AuthOverlay({ onLogin }: AuthOverlayProps) {
             />
           </div>
 
-          {error && <div style={{ color: "#ff6b6b", fontSize: "0.85rem", background: "rgba(255,107,107,0.1)", padding: "0.5rem", borderRadius: "4px" }}>{error}</div>}
-          {success && <div style={{ color: "#4ade80", fontSize: "0.85rem", background: "rgba(74,222,128,0.1)", padding: "0.5rem", borderRadius: "4px" }}>{success}</div>}
+          {error && <div style={{ color: "#ff6b6b", fontSize: "0.85rem", background: "rgba(255,107,107,0.1)", padding: "0.75rem", borderRadius: "6px", lineHeight: 1.4 }}>{error}</div>}
+          {success && <div style={{ color: "#4ade80", fontSize: "0.85rem", background: "rgba(74,222,128,0.1)", padding: "0.75rem", borderRadius: "6px" }}>{success}</div>}
 
           <button
             type="submit"
             disabled={loading}
             style={{
-              marginTop: "1rem", width: "100%", padding: "0.85rem", borderRadius: "6px",
+              marginTop: "0.5rem", width: "100%", padding: "0.85rem", borderRadius: "6px",
               background: "#7c3aed", color: "white", border: "none",
               fontSize: "1rem", fontWeight: 600, cursor: loading ? "not-allowed" : "pointer",
               transition: "background 0.2s"
@@ -112,7 +128,21 @@ export function AuthOverlay({ onLogin }: AuthOverlayProps) {
           </button>
         </form>
 
-        <div style={{ textAlign: "center", marginTop: "1.5rem" }}>
+        <div style={{ marginTop: "1rem", textAlign: "center" }}>
+          <button
+            type="button"
+            onClick={handleGuestLogin}
+            style={{
+              width: "100%", padding: "0.75rem", borderRadius: "6px",
+              background: "rgba(224, 142, 109, 0.15)", color: "#e08e6d", border: "1px solid rgba(224, 142, 109, 0.3)",
+              fontSize: "0.9rem", fontWeight: 700, cursor: "pointer"
+            }}
+          >
+            ⚡ Continue as Guest (Local Offline Mode)
+          </button>
+        </div>
+
+        <div style={{ textAlign: "center", marginTop: "1.25rem" }}>
           <button
             type="button"
             onClick={() => setIsSignUp(!isSignUp)}
