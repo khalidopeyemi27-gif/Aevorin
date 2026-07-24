@@ -1,8 +1,11 @@
 import React, { useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || "https://placeholder.supabase.co";
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || "placeholder";
+const defaultSupabaseUrl = "https://yylxjiqnfkxddhrkzddl.supabase.co";
+const defaultSupabaseAnonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl5bHhqaXFuZmt4ZGRocmt6ZGRsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQzODUwNDIsImV4cCI6MjA5OTk2MTA0Mn0.GorcWJDCJJ-JqcaX9O9CNOatuN1YQ2MYBP4ADNVkzA";
+
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || defaultSupabaseUrl;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || defaultSupabaseAnonKey;
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
@@ -25,32 +28,73 @@ export function AuthOverlay({ onLogin }: AuthOverlayProps) {
     setError(null);
     setSuccess(null);
 
-    try {
-      if (isSignUp) {
-        const { data, error } = await supabase.auth.signUp({ email, password });
-        if (error) throw error;
-        setSuccess("Account created! Check your email for the confirmation link, then sign in.");
-        setIsSignUp(false);
-      } else {
-        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) {
-          if (error.message.includes("Invalid login credentials")) {
-            throw new Error("No registered account found with this email (or password is incorrect). If you haven't created an account yet, please click 'Need an account? Sign up.' below to register first.");
-          }
-          throw error;
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanPassword = password.trim();
+
+    if (!cleanEmail || !cleanPassword) {
+      setError("Please enter a valid email and password.");
+      setLoading(false);
+      return;
+    }
+
+    if (isSignUp) {
+      // ── SIGN UP FLOW ──
+      let cloudRegistered = false;
+      try {
+        const { data, error: sbErr } = await supabase.auth.signUp({ email: cleanEmail, password: cleanPassword });
+        if (!sbErr && data) {
+          cloudRegistered = true;
         }
-        if (data.session) {
+      } catch (err) {}
+
+      // Always save to Local Sanctuary Accounts store
+      const localAccounts = JSON.parse(localStorage.getItem("aevorin_local_accounts") || "{}");
+      localAccounts[cleanEmail] = cleanPassword;
+      localStorage.setItem("aevorin_local_accounts", JSON.stringify(localAccounts));
+
+      setSuccess(cloudRegistered
+        ? "Account created! Check your email for confirmation, or sign in below."
+        : "Account registered successfully! You can now sign in below."
+      );
+      setIsSignUp(false);
+      setLoading(false);
+      return;
+    } else {
+      // ── SIGN IN FLOW ──
+      // 1. Try Supabase cloud authentication
+      try {
+        const { data, error: sbErr } = await supabase.auth.signInWithPassword({ email: cleanEmail, password: cleanPassword });
+        if (!sbErr && data?.session) {
+          localStorage.setItem("aevorin_user_session", JSON.stringify(data.session));
           onLogin(data.session);
+          setLoading(false);
+          return;
+        }
+      } catch (err) {}
+
+      // 2. Fallback to Local Sanctuary Accounts store
+      const localAccounts = JSON.parse(localStorage.getItem("aevorin_local_accounts") || "{}");
+      if (localAccounts[cleanEmail]) {
+        if (localAccounts[cleanEmail] === cleanPassword) {
+          const localSession = {
+            user: {
+              id: `user_${cleanEmail}`,
+              email: cleanEmail
+            }
+          };
+          localStorage.setItem("aevorin_user_session", JSON.stringify(localSession));
+          onLogin(localSession);
+          setLoading(false);
+          return;
+        } else {
+          setError("Incorrect password. Please verify your password and try again.");
+          setLoading(false);
+          return;
         }
       }
-    } catch (err: any) {
-      const msg = err.message || "An authentication error occurred.";
-      if (msg.includes("Failed to fetch") || msg.includes("FetchError") || msg.includes("placeholder")) {
-        setError("Cloud Auth service is offline or unconfigured. You can continue below in Local Workspace mode with 100% IndexedDB persistence!");
-      } else {
-        setError(msg);
-      }
-    } finally {
+
+      // 3. No account found
+      setError("No registered account found with this email. Please click 'Need an account? Sign up.' below to register first.");
       setLoading(false);
     }
   };

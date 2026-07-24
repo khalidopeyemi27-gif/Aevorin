@@ -77,21 +77,27 @@ export default function App() {
   const [success, setSuccess] = useState<string | null>(null);
 
   useEffect(() => {
-    const savedGuest = localStorage.getItem("aevorin_guest_session");
-    if (savedGuest) {
+    const savedSession = localStorage.getItem("aevorin_user_session") || localStorage.getItem("aevorin_guest_session");
+    if (savedSession) {
       try {
-        setSession(JSON.parse(savedGuest));
+        setSession(JSON.parse(savedSession));
       } catch (err) {}
     }
 
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) setSession(session);
+      if (session) {
+        setSession(session);
+        localStorage.setItem("aevorin_user_session", JSON.stringify(session));
+      }
     }).catch(() => {});
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session) setSession(session);
+      if (session) {
+        setSession(session);
+        localStorage.setItem("aevorin_user_session", JSON.stringify(session));
+      }
     });
 
     return () => subscription?.unsubscribe();
@@ -135,6 +141,7 @@ export default function App() {
   }, []);
 
   const handleLogout = async () => {
+    localStorage.removeItem("aevorin_user_session");
     localStorage.removeItem("aevorin_guest_session");
     try {
       await supabase.auth.signOut();
