@@ -140,9 +140,9 @@ function ChapterNode({ ch, children, renamingChapterId, renameTitle, setRenameTi
 
 export default function Manuscript({
   projectId,
-  chapters,
-  scenes,
-  entities,
+  chapters = [],
+  scenes = [],
+  entities = [],
   onRefreshChapters,
   onRefreshScenes,
   onSeedExample,
@@ -1176,8 +1176,9 @@ export default function Manuscript({
           </form>
 
           <div className="tree-list">
-            {chapters.map((ch) => {
-              const chScenes = visibleScenes.filter(s => s.chapter_id === ch.id);
+            {(Array.isArray(chapters) ? chapters : []).map((ch) => {
+              const safeVisible = Array.isArray(visibleScenes) ? visibleScenes : [];
+              const chScenes = safeVisible.filter(s => s.chapter_id === ch.id);
               chScenes.sort((a, b) => a.order_index - b.order_index);
 
               return (
@@ -1191,7 +1192,7 @@ export default function Manuscript({
                   setRenamingChapterId={setRenamingChapterId}
                   setContextMenuContext={setContextMenuContext}
                 >
-                  {chScenes.map((sc) => (
+                  {(Array.isArray(chScenes) ? chScenes : []).map((sc) => (
                     <SceneNode
                       key={sc.id}
                       sc={sc}
@@ -1204,13 +1205,13 @@ export default function Manuscript({
               );
             })}
 
-            {visibleScenes.filter(s => !s.chapter_id).length > 0 && (
+            {(Array.isArray(visibleScenes) ? visibleScenes : []).filter(s => !s.chapter_id).length > 0 && (
               <div className="tree-chapter-group">
                 <div className="tree-chapter-header">
                   <strong>Uncategorized Scenes</strong>
                 </div>
                 <div className="tree-scenes-list">
-                  {visibleScenes
+                  {(Array.isArray(visibleScenes) ? visibleScenes : [])
                     .filter(s => !s.chapter_id)
                     .sort((a, b) => a.order_index - b.order_index)
                     .map((sc) => (
@@ -1239,7 +1240,7 @@ export default function Manuscript({
               onChange={(e) => setSelectedChapterId(e.target.value === "uncategorized" ? null : e.target.value)}
             >
               <option value="uncategorized">No Chapter</option>
-              {chapters.map(ch => (
+              {(Array.isArray(chapters) ? chapters : []).map(ch => (
                 <option key={ch.id} value={ch.id}>{ch.title}</option>
               ))}
             </select>
@@ -1453,7 +1454,7 @@ export default function Manuscript({
                     </div>
                   ) : (
                     <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem", marginTop: "0.5rem", maxHeight: "250px", overflowY: "auto", paddingRight: "0.2rem" }}>
-                      {consistencyIssues.map((issue, idx) => (
+                      {(Array.isArray(consistencyIssues) ? consistencyIssues : []).map((issue, idx) => (
                         <div key={idx} style={{
                           background: "rgba(239, 68, 68, 0.08)",
                           border: "1px solid rgba(239, 68, 68, 0.2)",
@@ -1494,7 +1495,7 @@ export default function Manuscript({
                       <div className="daily-progress-bar-fill" style={{ width: `${getProgressPercentage()}%` }} />
                     </div>
                     <div className="daily-progress-stats">
-                      <span>{activeScene.word_count} / {dailyGoal} words</span>
+                      <span>{activeScene?.word_count || 0} / {dailyGoal} words</span>
                       <strong className="percentage-badge">{getProgressPercentage()}%</strong>
                     </div>
                   </div>
@@ -1503,7 +1504,7 @@ export default function Manuscript({
                 <div className="meta-group">
                   <label>Status</label>
                   <select
-                    value={activeScene.status}
+                    value={activeScene?.status || "draft"}
                     onChange={(e) => updateActiveScene({ status: e.target.value })}
                   >
                     <option value="draft">Draft</option>
@@ -1517,7 +1518,7 @@ export default function Manuscript({
                   <input
                     type="text"
                     placeholder="e.g. Dark / Suspense"
-                    value={activeScene.mood || ""}
+                    value={activeScene?.mood || ""}
                     onChange={(e) => updateActiveScene({ mood: e.target.value })}
                   />
                 </div>
@@ -1525,11 +1526,11 @@ export default function Manuscript({
                 <div className="meta-group">
                   <label>POV Character</label>
                   <select
-                    value={activeScene.pov_entity_id || ""}
+                    value={activeScene?.pov_entity_id || ""}
                     onChange={(e) => updateActiveScene({ pov_entity_id: e.target.value || null })}
                   >
                     <option value="">None</option>
-                    {characters.map(c => (
+                    {(Array.isArray(characters) ? characters : []).map(c => (
                       <option key={c.id} value={c.id}>{c.title}</option>
                     ))}
                   </select>
@@ -1540,7 +1541,7 @@ export default function Manuscript({
                     <label>Scene Purpose</label>
                     <button 
                       className="calm-expand-field-btn"
-                      onClick={() => setExpandedField({ field: "purpose", value: activeScene.purpose || "" })}
+                      onClick={() => setExpandedField({ field: "purpose", value: activeScene?.purpose || "" })}
                       style={{ background: "none", border: "none", color: "#818cf8", fontSize: "0.75rem", cursor: "pointer", fontWeight: 600, padding: 0 }}
                     >
                       🔍 Expand
@@ -1549,7 +1550,7 @@ export default function Manuscript({
                   <input
                     type="text"
                     placeholder="e.g. Introduce Kai's motive"
-                    value={activeScene.purpose}
+                    value={activeScene?.purpose || ""}
                     onChange={(e) => updateActiveScene({ purpose: e.target.value })}
                   />
                 </div>
@@ -1559,7 +1560,7 @@ export default function Manuscript({
                     <label>Conflict</label>
                     <button 
                       className="calm-expand-field-btn"
-                      onClick={() => setExpandedField({ field: "conflict", value: activeScene.conflict || "" })}
+                      onClick={() => setExpandedField({ field: "conflict", value: activeScene?.conflict || "" })}
                       style={{ background: "none", border: "none", color: "#818cf8", fontSize: "0.75rem", cursor: "pointer", fontWeight: 600, padding: 0 }}
                     >
                       🔍 Expand
@@ -1567,7 +1568,7 @@ export default function Manuscript({
                   </div>
                   <textarea
                     placeholder="What is blocking the POV character's goal?"
-                    value={activeScene.conflict}
+                    value={activeScene?.conflict || ""}
                     onChange={(e) => updateActiveScene({ conflict: e.target.value })}
                   />
                 </div>
@@ -1577,7 +1578,7 @@ export default function Manuscript({
                     <label>Outcome / Disaster</label>
                     <button 
                       className="calm-expand-field-btn"
-                      onClick={() => setExpandedField({ field: "outcome", value: activeScene.outcome || "" })}
+                      onClick={() => setExpandedField({ field: "outcome", value: activeScene?.outcome || "" })}
                       style={{ background: "none", border: "none", color: "#818cf8", fontSize: "0.75rem", cursor: "pointer", fontWeight: 600, padding: 0 }}
                     >
                       🔍 Expand
@@ -1585,7 +1586,7 @@ export default function Manuscript({
                   </div>
                   <textarea
                     placeholder="How does this scene resolve?"
-                    value={activeScene.outcome}
+                    value={activeScene?.outcome || ""}
                     onChange={(e) => updateActiveScene({ outcome: e.target.value })}
                   />
                 </div>
@@ -1615,7 +1616,7 @@ export default function Manuscript({
                   </div>
 
                   <div className="versions-list-scroll">
-                    {versions.map((ver) => (
+                    {(Array.isArray(versions) ? versions : []).map((ver) => (
                       <div key={ver.id} className="version-restore-item">
                         <div className="version-meta">
                           <strong>V{ver.version_number}</strong>
