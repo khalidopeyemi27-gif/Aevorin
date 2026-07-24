@@ -964,13 +964,13 @@ export default function Workspace({
                     <div className="analytics-card" style={{ background: "rgba(0,0,0,0.15)", padding: "1rem", borderRadius: "8px" }}>
                       <h3>Top Repeated Words</h3>
                       <ul style={{ listStyle: "none", marginTop: "1rem" }}>
-                        {analytics.topRepeatedWords.map(w => (
+                        {(analytics.topRepeatedWords || []).map(w => (
                           <li key={w.word} style={{ display: "flex", justifyContent: "space-between", fontSize: "0.9rem", padding: "0.25rem 0" }}>
                             <span>{w.word}</span>
                             <strong>{w.count} times</strong>
                           </li>
                         ))}
-                        {analytics.topRepeatedWords.length === 0 && <p style={{ color: "#64748b" }}>Not enough text to analyze.</p>}
+                        {(!analytics.topRepeatedWords || analytics.topRepeatedWords.length === 0) && <p style={{ color: "#64748b" }}>Not enough text to analyze.</p>}
                       </ul>
                     </div>
 
@@ -994,11 +994,11 @@ export default function Workspace({
                     )}
 
                     {/* Chapter Pacing Analytics Card */}
-                    {analytics.pacing && analytics.pacing.length > 0 && (
+                    {analytics.pacing && Array.isArray(analytics.pacing) && analytics.pacing.length > 0 && (
                       <div className="analytics-card" style={{ background: "rgba(0,0,0,0.15)", padding: "1rem", borderRadius: "8px", gridColumn: "span 2" }}>
                         <h3>Chapter Pacing & Scene Variance</h3>
                         <div style={{ marginTop: "1rem", display: "flex", flexDirection: "column", gap: "1rem" }}>
-                          {analytics.pacing.map(p => (
+                          {(analytics.pacing || []).map(p => (
                             <div key={p.chapterId} style={{ background: "rgba(0,0,0,0.1)", padding: "0.75rem", borderRadius: "6px", border: "1px solid var(--border-color)" }}>
                               <div style={{ display: "flex", justifyContent: "space-between", fontWeight: "600", marginBottom: "0.5rem" }}>
                                 <span>{p.chapterTitle}</span>
@@ -1011,9 +1011,9 @@ export default function Workspace({
                               </div>
                               
                               {/* Warnings & Flags */}
-                              {p.flags.length > 0 && (
+                              {p.flags && Array.isArray(p.flags) && p.flags.length > 0 && (
                                 <div style={{ marginTop: "0.5rem", padding: "0.5rem", background: "rgba(239, 68, 68, 0.1)", borderRadius: "4px", border: "1px solid rgba(239, 68, 68, 0.2)" }}>
-                                  {p.flags.map((flag, idx) => (
+                                  {(p.flags || []).map((flag: any, idx: number) => (
                                     <div key={idx} style={{ fontSize: "0.8rem", color: "#f87171", display: "flex", gap: "0.5rem" }}>
                                       <span>⚠️</span>
                                       <span>{flag.message}</span>
@@ -1030,7 +1030,7 @@ export default function Workspace({
                     <div className="analytics-card" style={{ background: "rgba(0,0,0,0.15)", padding: "1rem", borderRadius: "8px", gridColumn: "span 2" }}>
                       <h3>POV Character Scene Balance</h3>
                       <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem", marginTop: "1rem" }}>
-                        {analytics.povDistribution.map(pov => (
+                        {(analytics.povDistribution || []).map(pov => (
                           <div key={pov.name} style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
                             <span style={{ width: "150px", fontSize: "0.9rem" }}>{pov.name}</span>
                             <div style={{ flex: 1, height: "12px", background: "rgba(255,255,255,0.05)", borderRadius: "6px", overflow: "hidden" }}>
@@ -1043,7 +1043,7 @@ export default function Workspace({
                             <span style={{ fontSize: "0.85rem", fontWeight: "700" }}>{pov.count} scenes</span>
                           </div>
                         ))}
-                        {analytics.povDistribution.length === 0 && <p style={{ color: "#64748b" }}>No POVs defined yet.</p>}
+                        {(!analytics.povDistribution || analytics.povDistribution.length === 0) && <p style={{ color: "#64748b" }}>No POVs defined yet.</p>}
                       </div>
                     </div>
                   </div>
@@ -1069,7 +1069,7 @@ export default function Workspace({
                 </p>
 
                 <div className="backups-list" style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-                  {backups.map(b => (
+                  {(Array.isArray(backups) ? backups : []).map(b => (
                     <div key={b.fileName} style={{
                       display: "flex",
                       justifyContent: "space-between",
@@ -1620,13 +1620,13 @@ export default function Workspace({
                             Total Local Events Logged: {localInsights.totalEvents}
                           </div>
                           <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-                            {localInsights.events.map((ev: any) => (
+                            {(localInsights.events || []).map((ev: any) => (
                               <div key={ev.event_name} style={{ display: "flex", justifyContent: "space-between", background: "rgba(0,0,0,0.15)", padding: "0.5rem 0.75rem", borderRadius: "6px" }}>
                                 <code style={{ color: "#cbd5e1", fontSize: "0.85rem" }}>{ev.event_name}</code>
                                 <strong style={{ color: "#818cf8", fontSize: "0.85rem" }}>{ev.count} times</strong>
                               </div>
                             ))}
-                            {localInsights.events.length === 0 && (
+                            {(!localInsights.events || localInsights.events.length === 0) && (
                               <p style={{ color: "#64748b", fontSize: "0.85rem" }}>No events logged yet.</p>
                             )}
                           </div>
