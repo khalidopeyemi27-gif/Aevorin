@@ -6,6 +6,7 @@ import { NavigationProvider } from "./core/navigation/NavigationContext";
 import { NavigationDebugger } from "./components/workspace/NavigationDebugger";
 import { AuthOverlay, supabase } from "./components/auth/AuthOverlay";
 import { ProjectRepository } from "./database/repositories/projectRepository";
+import { db } from "./database/db";
 
 const Dashboard = lazy(() => import("./core/Dashboard"));
 const Workspace = lazy(() => import("./core/Workspace"));
@@ -245,14 +246,32 @@ export default function App() {
 
   const handleDeleteProject = async (projectName: string) => {
     try {
-      const res = await fetch(apiUrl(`/api/projects/${projectName}`), {
-        method: "DELETE"
-      });
-      if (!res.ok) throw new Error("Failed to delete project");
-      setSuccess(`Deleted project "${projectName}"!`);
+      // 1. Delete from local Dexie IndexedDB database immediately (0ms)
+      const localProject = await ProjectRepository.getByName(projectName);
+      if (localProject) {
+        await ProjectRepository.softDelete(localProject.id);
+        await db.projects.delete(localProject.id);
+      }
+      await db.projects.where("name").equals(projectName).delete();
+
+      // 2. Update local state immediately
+      setProjects((prev) => prev.filter((p) => p.name !== projectName));
+      if (loadedProject && loadedProject.name === projectName) {
+        setLoadedProject(null);
+      }
+
+      // 3. Sync to backend API if available
+      try {
+        await fetch(apiUrl(`/api/projects/${encodeURIComponent(projectName)}`), {
+          method: "DELETE"
+        });
+      } catch (e) {}
+
+      setSuccess(`Deleted book "${projectName}"!`);
       await fetchProjects();
     } catch (err: any) {
-      setError(err.message);
+      console.error("[App] Delete project error:", err);
+      setError(err.message || "Failed to delete project");
     }
   };
 
@@ -268,54 +287,85 @@ export default function App() {
 
   const handleRenameProject = async (name: string, newName: string) => {
     try {
-      const res = await fetch(apiUrl(`/api/projects/${name}/rename`), {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ newName })
-      });
-      if (!res.ok) {
-        const errData = await res.json();
-        throw new Error(errData.error || "Failed to rename project");
+      // 1. Update in local Dexie IndexedDB
+      const localProject = await ProjectRepository.getByName(name);
+      if (localProject) {
+        await ProjectRepository.update(localProject.id, { name: newName });
       }
-      setSuccess(`Renamed project to "${newName}"!`);
+      setProjects((prev) => prev.map((p) => p.name === name ? { ...p, name: newName } : p));
+
+      // 2. Sync to backend API
+      try {
+        await fetch(apiUrl(`/api/projects/${encodeURIComponent(name)}/rename`), {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ newName })
+        });
+      } catch (e) {}
+
+      setSuccess(`Renamed book to "${newName}"!`);
       await fetchProjects();
       if (loadedProject && loadedProject.name === name) {
-        await handleLoadProject(newName);
+        setLoadedProject((prev: any) => (prev ? { ...prev, name: newName } : null));
       }
     } catch (err: any) {
-      setError(err.message);
+      setError(err.message || "Failed to rename book");
     }
   };
 
   const handleDuplicateProject = async (name: string, newName: string) => {
     try {
-      const res = await fetch(apiUrl(`/api/projects/${name}/duplicate`), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ newName })
+      // 1. Duplicate in local Dexie IndexedDB
+      const source = await ProjectRepository.getByName(name);
+      await ProjectRepository.create({
+        name: newName,
+        description: source?.description || `Copy of ${name}`,
+        template: source?.manifest?.writing_mode || "novel",
+        targetWordCount: source?.targetWordCount || 80000,
+        coverImage: source?.coverImage || undefined
       });
-      if (!res.ok) {
-        const errData = await res.json();
-        throw new Error(errData.error || "Failed to duplicate project");
-      }
-      setSuccess(`Duplicated project "${name}" to "${newName}"!`);
+
+      // 2. Sync to backend API
+      try {
+        await fetch(apiUrl(`/api/projects/${encodeURIComponent(name)}/duplicate`), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ newName })
+        });
+      } catch (e) {}
+
+      setSuccess(`Duplicated book "${name}" to "${newName}"!`);
       await fetchProjects();
     } catch (err: any) {
-      setError(err.message);
+      setError(err.message || "Failed to duplicate book");
     }
   };
 
   const handleArchiveProject = async (name: string, archive: boolean) => {
     try {
-      const endpoint = archive ? "archive" : "unarchive";
-      const res = await fetch(apiUrl(`/api/projects/${name}/${endpoint}`), {
-        method: "PUT"
-      });
-      if (!res.ok) throw new Error(`Failed to ${endpoint} project`);
-      setSuccess(`${archive ? "Archived" : "Restored"} project "${name}"!`);
+      // 1. Update in local Dexie IndexedDB
+      const localProject = await ProjectRepository.getByName(name);
+      if (localProject) {
+        await ProjectRepository.update(localProject.id, {
+          manifest: {
+            ...localProject.manifest,
+            archived: archive
+          } as any
+        });
+      }
+
+      // 2. Sync to backend API
+      try {
+        const endpoint = archive ? "archive" : "unarchive";
+        await fetch(apiUrl(`/api/projects/${encodeURIComponent(name)}/${endpoint}`), {
+          method: "PUT"
+        });
+      } catch (e) {}
+
+      setSuccess(`${archive ? "Archived" : "Restored"} book "${name}"!`);
       await fetchProjects();
     } catch (err: any) {
-      setError(err.message);
+      setError(err.message || `Failed to archive book`);
     }
   };
 
