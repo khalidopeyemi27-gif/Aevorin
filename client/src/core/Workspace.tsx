@@ -1733,6 +1733,15 @@ export default function Workspace({
                         >
                           Disconnect Workspace
                         </button>
+                        {onLogout && (
+                          <button 
+                            className="btn btn-secondary btn-sm" 
+                            style={{ minHeight: "44px", background: "rgba(239, 68, 68, 0.15)", border: "1px solid rgba(239, 68, 68, 0.4)", color: "#f87171", fontWeight: 700 }} 
+                            onClick={onLogout}
+                          >
+                            🚪 Exit Guest Mode / Sign Out
+                          </button>
+                        )}
                       </div>
                     </section>
                   </div>
