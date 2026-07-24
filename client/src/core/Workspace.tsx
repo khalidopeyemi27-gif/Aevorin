@@ -105,6 +105,7 @@ interface WorkspaceProps {
   onSeedExample?: () => void;
   projects?: any[];
   onLoadProject?: (projectName: string) => Promise<void>;
+  onLogout?: () => void;
 }
 
 interface AnalyticsData {
@@ -153,7 +154,8 @@ export default function Workspace({
   onBackToDashboard,
   onSeedExample,
   projects = [],
-  onLoadProject
+  onLoadProject,
+  onLogout
 }: WorkspaceProps) {
   const {
     activeTab,
@@ -748,10 +750,21 @@ export default function Workspace({
                   🟢 Local Workspace • Saved in this browser
                 </span>
               </div>
-              <button
-                onClick={() => nav("manuscript")}
-                style={{ background: "linear-gradient(135deg, #9f8ad0, #b46cff)", color: "#fff", border: "none", padding: "0.5rem 1.1rem", borderRadius: "20px", fontSize: "0.85rem", fontWeight: 700, cursor: "pointer", boxShadow: "0 3px 12px rgba(159,138,208,0.35)" }}
-              >✏️ Write</button>
+              <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+                {onLogout && (
+                  <button
+                    onClick={onLogout}
+                    style={{ background: "rgba(239, 68, 68, 0.12)", color: "#f87171", border: "1px solid rgba(239, 68, 68, 0.3)", borderRadius: "20px", padding: "0.45rem 0.85rem", fontSize: "0.8rem", fontWeight: 600, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: "0.3rem" }}
+                    title="Sign Out of AEVORIN"
+                  >
+                    🚪 Sign Out
+                  </button>
+                )}
+                <button
+                  onClick={() => nav("manuscript")}
+                  style={{ background: "linear-gradient(135deg, #9f8ad0, #b46cff)", color: "#fff", border: "none", padding: "0.5rem 1.1rem", borderRadius: "20px", fontSize: "0.85rem", fontWeight: 700, cursor: "pointer", boxShadow: "0 3px 12px rgba(159,138,208,0.35)" }}
+                >✏️ Write</button>
+              </div>
             </div>
 
             {/* Segmented Pill Navigation Control */}

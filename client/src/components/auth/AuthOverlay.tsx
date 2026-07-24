@@ -13,6 +13,7 @@ interface AuthOverlayProps {
 export function AuthOverlay({ onLogin }: AuthOverlayProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -28,10 +29,16 @@ export function AuthOverlay({ onLogin }: AuthOverlayProps) {
       if (isSignUp) {
         const { data, error } = await supabase.auth.signUp({ email, password });
         if (error) throw error;
-        setSuccess("Check your email for the confirmation link!");
+        setSuccess("Account created! Check your email for the confirmation link, then sign in.");
+        setIsSignUp(false);
       } else {
         const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
+        if (error) {
+          if (error.message.includes("Invalid login credentials")) {
+            throw new Error("No registered account found with this email (or password is incorrect). If you haven't created an account yet, please click 'Need an account? Sign up.' below to register first.");
+          }
+          throw error;
+        }
         if (data.session) {
           onLogin(data.session);
         }
@@ -39,7 +46,7 @@ export function AuthOverlay({ onLogin }: AuthOverlayProps) {
     } catch (err: any) {
       const msg = err.message || "An authentication error occurred.";
       if (msg.includes("Failed to fetch") || msg.includes("FetchError") || msg.includes("placeholder")) {
-        setError("Cloud Auth service is offline or unconfigured. You can continue below in Local Offline Writing Mode with 100% IndexedDB persistence!");
+        setError("Cloud Auth service is offline or unconfigured. You can continue below in Local Workspace mode with 100% IndexedDB persistence!");
       } else {
         setError(msg);
       }
@@ -89,6 +96,7 @@ export function AuthOverlay({ onLogin }: AuthOverlayProps) {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
+              placeholder="author@domain.com"
               style={{
                 width: "100%", padding: "0.75rem", borderRadius: "6px",
                 background: "rgba(0,0,0,0.2)", border: "1px solid rgba(255,255,255,0.1)",
@@ -98,17 +106,32 @@ export function AuthOverlay({ onLogin }: AuthOverlayProps) {
           </div>
           <div>
             <label style={{ display: "block", fontSize: "0.85rem", marginBottom: "0.5rem", color: "#94a3b8" }}>Password</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              style={{
-                width: "100%", padding: "0.75rem", borderRadius: "6px",
-                background: "rgba(0,0,0,0.2)", border: "1px solid rgba(255,255,255,0.1)",
-                color: "white", fontSize: "1rem"
-              }}
-            />
+            <div style={{ position: "relative" }}>
+              <input
+                type={showPassword ? "text" : "password"}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                placeholder="••••••••"
+                style={{
+                  width: "100%", padding: "0.75rem 2.5rem 0.75rem 0.75rem", borderRadius: "6px",
+                  background: "rgba(0,0,0,0.2)", border: "1px solid rgba(255,255,255,0.1)",
+                  color: "white", fontSize: "1rem"
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                style={{
+                  position: "absolute", right: "0.5rem", top: "50%", transform: "translateY(-50%)",
+                  background: "none", border: "none", color: "#94a3b8", cursor: "pointer",
+                  padding: "0.25rem 0.5rem", fontSize: "1.1rem", display: "flex", alignItems: "center"
+                }}
+                title={showPassword ? "Hide password" : "Show password"}
+              >
+                {showPassword ? "🙈" : "👁️"}
+              </button>
+            </div>
           </div>
 
           {error && <div style={{ color: "#ff6b6b", fontSize: "0.85rem", background: "rgba(255,107,107,0.1)", padding: "0.75rem", borderRadius: "6px", lineHeight: 1.4 }}>{error}</div>}

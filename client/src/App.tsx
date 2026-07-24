@@ -134,6 +134,15 @@ export default function App() {
     fetchProjects();
   }, []);
 
+  const handleLogout = async () => {
+    localStorage.removeItem("aevorin_guest_session");
+    try {
+      await supabase.auth.signOut();
+    } catch (err) {}
+    setSession(null);
+    setLoadedProject(null);
+  };
+
   const handleCreateProject = async (name: string, description: string, template: string, targetWordCount: number, coverImage: string | null) => {
     try {
       // Create locally in Dexie IndexedDB first (0ms response)
@@ -361,6 +370,7 @@ export default function App() {
               onSeedExample={handleSeedExample}
               projects={projects}
               onLoadProject={handleLoadProject}
+              onLogout={handleLogout}
             />
           </Suspense>
         </ErrorBoundary>
@@ -405,6 +415,7 @@ export default function App() {
                 onDuplicateProject={handleDuplicateProject}
                 onArchiveProject={handleArchiveProject}
                 onCleanupSamples={handleCleanupSamples}
+                onLogout={handleLogout}
               />
             </Suspense>
           </main>

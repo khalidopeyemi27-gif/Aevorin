@@ -35,6 +35,7 @@ interface DashboardProps {
   onDuplicateProject: (name: string, newName: string) => Promise<void>;
   onArchiveProject: (name: string, archive: boolean) => Promise<void>;
   onCleanupSamples: () => Promise<void>;
+  onLogout?: () => void;
 }
 
 function timeAgo(dateStr: string): string {
@@ -143,7 +144,8 @@ export default function Dashboard({
   onRenameProject,
   onDuplicateProject,
   onArchiveProject,
-  onCleanupSamples
+  onCleanupSamples,
+  onLogout
 }: DashboardProps) {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -524,7 +526,20 @@ export default function Dashboard({
                 Library
               </h1>
             </div>
-            <div style={{ display: "flex", gap: "1.25rem", alignItems: "center" }}>
+            <div style={{ display: "flex", gap: "1rem", alignItems: "center" }}>
+              {onLogout && (
+                <button
+                  onClick={onLogout}
+                  style={{
+                    background: "rgba(239, 68, 68, 0.12)", color: "#f87171", border: "1px solid rgba(239, 68, 68, 0.3)",
+                    borderRadius: "16px", padding: "0.35rem 0.75rem", fontSize: "0.78rem", fontWeight: 600,
+                    cursor: "pointer", display: "inline-flex", alignItems: "center", gap: "0.3rem"
+                  }}
+                  title="Sign Out of AEVORIN"
+                >
+                  🚪 Sign Out
+                </button>
+              )}
               <button 
                 onClick={() => setSearchOpen(s => !s)}
                 style={{ background: "none", border: "none", color: searchOpen ? "#e08e6d" : "rgba(255,255,255,0.45)", fontSize: "1.25rem", cursor: "pointer", padding: 0, transition: "color 0.2s" }}
