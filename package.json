@@ -5,6 +5,7 @@
   "scripts": {
     "install:all": "npm install && cd client && npm install",
     "build": "npm run build:client",
+    "postinstall": "cd client && npm install && npm run build",
     "start": "node backend/server.js",
     "server": "node backend/server.js",
     "client": "npm run dev --prefix client",

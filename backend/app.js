@@ -586,22 +586,37 @@ app.use("/api/projects/:id", require("./core/manuscript/routes"));
 // Mount Knowledge Router under project endpoint
 app.use("/api/projects/:id", require("./core/knowledge/routes"));
 
-// Serve static production frontend files from client/dist
+// Serve static production frontend files from client/dist or candidate folders
 const path = require("path");
-const clientDistPath = path.join(__dirname, "../client/dist");
-app.use(express.static(clientDistPath));
+const fs = require("fs");
+
+const candidateDistDirs = [
+  path.join(__dirname, "../client/dist"),
+  path.join(process.cwd(), "client/dist"),
+  path.join(__dirname, "../dist"),
+  path.join(process.cwd(), "dist")
+];
+
+candidateDistDirs.forEach(dir => {
+  if (fs.existsSync(dir)) {
+    app.use(express.static(dir));
+  }
+});
 
 // SPA Fallback for all non-API routes (e.g. /, /manuscript, /story)
 app.get("*", (req, res, next) => {
   if (req.path.startsWith("/api") || req.path.startsWith("/health")) {
     return next();
   }
-  const indexPath = path.join(clientDistPath, "index.html");
-  if (require("fs").existsSync(indexPath)) {
-    res.sendFile(indexPath);
-  } else {
-    res.status(200).send("AEVORIN Web Server Running. Build client bundle to view web app.");
+  
+  for (const dir of candidateDistDirs) {
+    const indexPath = path.join(dir, "index.html");
+    if (fs.existsSync(indexPath)) {
+      return res.sendFile(indexPath);
+    }
   }
+  
+  res.status(200).send("AEVORIN Web Server Running. Build client bundle to view web app.");
 });
 
 module.exports = app;
