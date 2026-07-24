@@ -715,23 +715,26 @@ export default function Knowledge({
     }
   };
 
-  const handleCreate = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newTitle.trim()) return;
+  const createEntityWithTitle = async (rawTitle: string, overrideSubCategory?: string) => {
+    const title = rawTitle.trim();
+    if (!title) return;
     setLoading(true);
     try {
-      // Define basic template metadata depending on active category
       let initialMeta: Record<string, any> = {};
       if (activeTab === "character") {
-        initialMeta = { fullName: newTitle.trim(), nickname: "", role: "", charType: "", age: "", gender: "", species: "", status: "", portrait: "\ud83e\uddd1", appearance: "", height: "", build: "", hair: "", eyes: "", clothing: "", distinguishing: "", strengths: "", flaws: "", traits: "", motivation: "", goal: "", greatestFear: "" };
+        initialMeta = { fullName: title, nickname: "", role: "", charType: "", age: "", gender: "", species: "", status: "", portrait: "\ud83e\uddd1", appearance: "", height: "", build: "", hair: "", eyes: "", clothing: "", distinguishing: "", strengths: "", flaws: "", traits: "", motivation: "", goal: "", greatestFear: "" };
       } else if (activeTab === "world") {
+        const subCat = overrideSubCategory || selectedWorldCategory || "places";
+        if (!selectedWorldCategory) {
+          setSelectedWorldCategory(subCat);
+        }
         initialMeta = {
-          subCategory: selectedWorldCategory || "places",
-          ...(selectedWorldCategory === "places" && { geography: "", climate: "", landmarks: "", description: "" }),
-          ...(selectedWorldCategory === "people" && { age: "", traits: "", faction: "", motivation: "", description: "" }),
-          ...(selectedWorldCategory === "history" && { era: "", event: "", significance: "", description: "" }),
-          ...(selectedWorldCategory === "rules" && { constraint: "", penalty: "", application: "", description: "" }),
-          ...(selectedWorldCategory === "magic" && { system: "", source: "", cost: "", spells: "", description: "" })
+          subCategory: subCat,
+          ...(subCat === "places" && { geography: "", climate: "", landmarks: "", description: "" }),
+          ...(subCat === "people" && { age: "", traits: "", faction: "", motivation: "", description: "" }),
+          ...(subCat === "history" && { era: "", event: "", significance: "", description: "" }),
+          ...(subCat === "rules" && { constraint: "", penalty: "", application: "", description: "" }),
+          ...(subCat === "magic" && { system: "", source: "", cost: "", spells: "", description: "" })
         };
       } else if (activeTab === "timeline") {
         initialMeta = { date: "", event: "", description: "", impact: "" };
@@ -745,20 +748,20 @@ export default function Knowledge({
       const newEnt = await EntityRepository.createEntity({
         projectId,
         type: activeTab,
-        title: newTitle.trim(),
+        title,
         summary: "",
         metadataJson: JSON.stringify(initialMeta)
       });
 
       // 2. Background push to backend API
       try {
-        await fetch(`/api/projects/${projectId}/entities`, {
+        await fetch(apiUrl(`/api/projects/${projectId}/entities`), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             id: newEnt.id,
             type: activeTab,
-            title: newTitle.trim(),
+            title,
             summary: "",
             metadata: initialMeta
           }),
@@ -781,6 +784,11 @@ export default function Knowledge({
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleCreate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await createEntityWithTitle(newTitle);
   };
 
   const handleCharSave = async (meta: any, title: string, summary: string) => {
@@ -1018,11 +1026,10 @@ export default function Knowledge({
                     subtitle: "Enter a name for your new character profile",
                     placeholder: "e.g. Arin Thorne",
                     confirmText: "Create Character",
-                    onConfirm: (t) => {
+                    onConfirm: async (t) => {
                       setPromptModal((prev) => ({ ...prev, isOpen: false }));
                       if (t.trim()) {
-                        setNewTitle(t.trim());
-                        setTimeout(() => (document.getElementById("char-submit-trigger") as HTMLButtonElement)?.click(), 50);
+                        await createEntityWithTitle(t.trim());
                       }
                     }
                   });
@@ -1148,14 +1155,10 @@ export default function Knowledge({
                       subtitle: `Enter a name for your new ${promptName}`,
                       placeholder: `e.g. ${promptName === 'places' ? 'Eldoria City' : 'Name'}`,
                       confirmText: "Create Profile",
-                      onConfirm: (title) => {
+                      onConfirm: async (title) => {
                         setPromptModal((prev) => ({ ...prev, isOpen: false }));
                         if (title.trim()) {
-                          setNewTitle(title.trim());
-                          setTimeout(() => {
-                            const submitBtn = document.getElementById("hidden-submit-trigger");
-                            if (submitBtn) submitBtn.click();
-                          }, 100);
+                          await createEntityWithTitle(title.trim());
                         }
                       }
                     });
