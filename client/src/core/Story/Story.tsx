@@ -337,27 +337,29 @@ export default function Story({ projectId, projectName, scenes, entities, onOpen
         )}
       </div>
 
-      {/* FLOATING ACTION BUTTON (⊕) POSITIONED AT bottom: 5.5rem TO PREVENT ANDROID SYSTEM SWIPE GESTURE CONFLICT */}
+      {/* FLOATING ACTION BUTTON (⊕) POSITIONED STACKED ABOVE AI FAB */}
       <button
         onClick={() => setIsAddSheetOpen(true)}
+        title="Add Chapter or Scene"
         style={{
           position: "fixed",
-          right: "1.5rem",
-          bottom: "5.5rem",
+          right: "20px",
+          bottom: "152px",
           width: "56px",
           height: "56px",
           borderRadius: "50%",
-          background: "#e08e6d",
+          background: "linear-gradient(135deg, #e08e6d, #f59e0b)",
           border: "none",
           color: "#fff",
           fontSize: "1.8rem",
           fontWeight: "bold",
           cursor: "pointer",
-          boxShadow: "0 4px 16px rgba(224,142,109,0.5)",
+          boxShadow: "0 6px 20px rgba(224,142,109,0.45)",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          zIndex: 900
+          zIndex: 950,
+          transition: "transform 0.2s ease, box-shadow 0.2s ease"
         }}
       >
         ＋
