@@ -453,24 +453,31 @@ function rebuildGraphCache(db, projectId) {
 // 5. Get Graph nodes and cached relationships
 router.get("/canon/graph/data", async (req, res) => {
   try {
-    const { id: projectId } = req.params;
+    const projectId = req.params.id || req.params.projectId || req.query.projectId || "default";
     const db = kernel.getContainer().get("databaseManager").activeDb;
-    if (!db) throw new Error("Database connection not open");
-
-    // Dynamic populate story_entities index & cache if needed
-    ensureStoryEntitiesPopulated(db, projectId);
-    const countRow = db.prepare("SELECT COUNT(*) as cnt FROM graph_relationships_cache WHERE project_id = ?").get(projectId);
-    const count = countRow ? countRow.cnt : 0;
-    if (count === 0) {
-      rebuildGraphCache(db, projectId);
+    if (!db) {
+      return res.json({ nodes: [], edges: [] });
     }
 
-    const nodes = db.prepare("SELECT * FROM story_entities WHERE project_id = ?").all(projectId);
-    const edges = db.prepare("SELECT * FROM graph_relationships_cache WHERE project_id = ?").all(projectId);
+    // Dynamic populate story_entities index & cache if needed
+    try {
+      ensureStoryEntitiesPopulated(db, projectId);
+      const countRow = db.prepare("SELECT COUNT(*) as cnt FROM graph_relationships_cache WHERE project_id = ?").get(projectId);
+      const count = countRow ? countRow.cnt : 0;
+      if (count === 0) {
+        rebuildGraphCache(db, projectId);
+      }
+    } catch (cacheErr) {
+      console.warn("[GraphRoute] Cache populate warning:", cacheErr);
+    }
+
+    const nodes = db.prepare("SELECT * FROM story_entities WHERE project_id = ?").all(projectId) || [];
+    const edges = db.prepare("SELECT * FROM graph_relationships_cache WHERE project_id = ?").all(projectId) || [];
 
     res.json({ nodes, edges });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error("[GraphRoute] Error:", error);
+    res.json({ nodes: [], edges: [] });
   }
 });
 

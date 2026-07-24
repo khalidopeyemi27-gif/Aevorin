@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef } from "react";
 import { apiUrl } from "../../lib/api";
 import { useStoryRoom } from "../StoryRoom/StoryRoomContext";
 import { useGraphSimulation } from "./useGraphSimulation";
+import { EntityRepository } from "../../database/repositories/entityRepository";
+import { GraphRepository } from "../../database/repositories/graphRepository";
 import type { GraphNode, GraphEdge } from "./types";
 
 interface StoryGraphProps {
@@ -39,28 +41,95 @@ export default function StoryGraph({ projectId }: StoryGraphProps) {
     }
   }, [loading]);
 
-  // Fetch node and edge datasets on mount
+  // Robust local-first node and edge loading
   useEffect(() => {
     let active = true;
     setLoading(true);
+    setError(null);
 
-    fetch(apiUrl(`/api/projects/${projectId}/canon/graph/data`))
-      .then((res) => {
-        if (!res.ok) throw new Error("Failed to load graph data");
-        return res.json();
-      })
-      .then((data) => {
-        if (!active) return;
-        setRawNodes(Array.isArray(data?.nodes) ? data.nodes : []);
-        setRawEdges(Array.isArray(data?.edges) ? data.edges : []);
-        setLoading(false);
-      })
-      .catch((err) => {
+    const loadGraph = async () => {
+      try {
+        // 1. Check local Dexie GraphRepository first
+        const localGraph = await GraphRepository.getGraphData(projectId);
+        if (localGraph && localGraph.nodes && localGraph.nodes.length > 0) {
+          if (active) {
+            setRawNodes(localGraph.nodes);
+            setRawEdges(localGraph.edges || []);
+            setLoading(false);
+          }
+        }
+
+        // 2. Fetch from backend API
+        const res = await fetch(apiUrl(`/api/projects/${projectId}/canon/graph/data`));
+        if (res.ok) {
+          const data = await res.json();
+          if (active && data && Array.isArray(data.nodes) && data.nodes.length > 0) {
+            setRawNodes(data.nodes);
+            setRawEdges(Array.isArray(data.edges) ? data.edges : []);
+            setLoading(false);
+            return;
+          }
+        }
+
+        // 3. Synthesize nodes & edges directly from Dexie EntityRepository
+        const entities = await EntityRepository.getEntities(projectId);
+        const rels = await EntityRepository.getRelationships(projectId);
+
+        const synthesizedNodes = (entities || []).map((e, idx) => ({
+          id: e.id,
+          label: e.title,
+          entity_type: e.type,
+          importance: 50 + (idx === 0 ? 30 : 0),
+          summary: e.summary || ""
+        }));
+
+        const synthesizedEdges = (rels || []).map((r) => ({
+          id: r.id,
+          source: r.sourceEntityId,
+          target: r.targetEntityId,
+          label: r.relationshipType
+        }));
+
         if (active) {
-          setError(err.message);
+          setRawNodes(synthesizedNodes);
+          setRawEdges(synthesizedEdges);
           setLoading(false);
         }
-      });
+      } catch (err: any) {
+        console.warn("[StoryGraph] Local synthesis fallback handling:", err);
+        try {
+          const entities = await EntityRepository.getEntities(projectId);
+          const rels = await EntityRepository.getRelationships(projectId);
+          const fallbackNodes = (entities || []).map((e, idx) => ({
+            id: e.id,
+            label: e.title,
+            entity_type: e.type,
+            importance: 50 + (idx === 0 ? 30 : 0),
+            summary: e.summary || ""
+          }));
+          const fallbackEdges = (rels || []).map((r) => ({
+            id: r.id,
+            source: r.sourceEntityId,
+            target: r.targetEntityId,
+            label: r.relationshipType
+          }));
+
+          if (active) {
+            setRawNodes(fallbackNodes);
+            setRawEdges(fallbackEdges);
+            setLoading(false);
+          }
+        } catch (inner) {
+          if (active) {
+            setRawNodes([]);
+            setRawEdges([]);
+            setLoading(false);
+          }
+        }
+      }
+    };
+
+    loadGraph();
 
     return () => {
       active = false;
