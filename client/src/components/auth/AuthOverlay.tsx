@@ -128,18 +128,23 @@ export function AuthOverlay({ onLogin }: AuthOverlayProps) {
           </button>
         </form>
 
-        <div style={{ marginTop: "1rem", textAlign: "center" }}>
+        <div style={{ marginTop: "1.25rem", textAlign: "center" }}>
           <button
             type="button"
             onClick={handleGuestLogin}
             style={{
-              width: "100%", padding: "0.75rem", borderRadius: "6px",
-              background: "rgba(224, 142, 109, 0.15)", color: "#e08e6d", border: "1px solid rgba(224, 142, 109, 0.3)",
-              fontSize: "0.9rem", fontWeight: 700, cursor: "pointer"
+              width: "100%", padding: "0.85rem", borderRadius: "8px",
+              background: "linear-gradient(135deg, rgba(224, 142, 109, 0.2), rgba(224, 142, 109, 0.1))",
+              color: "#e08e6d", border: "1px solid rgba(224, 142, 109, 0.4)",
+              fontSize: "0.95rem", fontWeight: 700, cursor: "pointer",
+              display: "flex", alignItems: "center", justifyContent: "center", gap: "0.4rem"
             }}
           >
-            ⚡ Continue as Guest (Local Offline Mode)
+            🟢 Continue as Guest (Local Workspace)
           </button>
+          <p style={{ color: "rgba(255,255,255,0.4)", fontSize: "0.75rem", marginTop: "0.5rem", lineHeight: 1.3 }}>
+            Your work is stored locally in this browser and is available even without an internet connection.
+          </p>
         </div>
 
         <div style={{ textAlign: "center", marginTop: "1.25rem" }}>

@@ -744,6 +744,9 @@ export default function Workspace({
                   Story Room
                 </h1>
                 <span style={{ fontSize: "0.85rem", color: "rgba(255,255,255,0.35)", fontWeight: 500 }}>• {project.name}</span>
+                <span style={{ fontSize: "0.72rem", background: "rgba(52, 211, 153, 0.12)", color: "#34d399", border: "1px solid rgba(52, 211, 153, 0.3)", borderRadius: "12px", padding: "0.15rem 0.55rem", fontWeight: 600, display: "inline-flex", alignItems: "center", gap: "0.3rem" }}>
+                  🟢 Local Workspace • Saved in this browser
+                </span>
               </div>
               <button
                 onClick={() => nav("manuscript")}
