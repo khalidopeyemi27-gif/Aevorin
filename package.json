@@ -4,6 +4,8 @@
   "private": true,
   "scripts": {
     "install:all": "npm install && cd client && npm install",
+    "build": "npm run build:client",
+    "start": "node backend/server.js",
     "server": "node backend/server.js",
     "client": "npm run dev --prefix client",
     "client:android": "npm run dev --prefix client -- --mode android",

@@ -586,4 +586,22 @@ app.use("/api/projects/:id", require("./core/manuscript/routes"));
 // Mount Knowledge Router under project endpoint
 app.use("/api/projects/:id", require("./core/knowledge/routes"));
 
+// Serve static production frontend files from client/dist
+const path = require("path");
+const clientDistPath = path.join(__dirname, "../client/dist");
+app.use(express.static(clientDistPath));
+
+// SPA Fallback for all non-API routes (e.g. /, /manuscript, /story)
+app.get("*", (req, res, next) => {
+  if (req.path.startsWith("/api") || req.path.startsWith("/health")) {
+    return next();
+  }
+  const indexPath = path.join(clientDistPath, "index.html");
+  if (require("fs").existsSync(indexPath)) {
+    res.sendFile(indexPath);
+  } else {
+    res.status(200).send("AEVORIN Web Server Running. Build client bundle to view web app.");
+  }
+});
+
 module.exports = app;
