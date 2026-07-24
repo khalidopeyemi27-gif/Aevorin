@@ -608,6 +608,9 @@ app.get("*", (req, res, next) => {
   if (req.path.startsWith("/api") || req.path.startsWith("/health")) {
     return next();
   }
+  if (req.path.startsWith("/assets")) {
+    return res.status(404).send("Asset not found");
+  }
   
   for (const dir of candidateDistDirs) {
     const indexPath = path.join(dir, "index.html");
