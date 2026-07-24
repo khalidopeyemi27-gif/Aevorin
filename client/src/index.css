@@ -5926,3 +5926,95 @@ kbd {
 .anim-fade-in { animation: fadeIn 0.2s ease-out; }
 .anim-slide-up { animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
 .anim-scale-in { animation: scaleIn 0.2s cubic-bezier(0.16, 1, 0.3, 1); }
+
+/* ====================================================
+   PREMIUM MOBILE & WEB BOTTOM NAVIGATION (Segmented Glassmorphism)
+   ==================================================== */
+.mobile-bottom-nav-bar {
+  display: none;
+  position: fixed;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: calc(100% - 32px);
+  max-width: 540px;
+  height: 56px;
+  background: rgba(22, 21, 20, 0.92);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 28px;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.6), 0 2px 8px rgba(0, 0, 0, 0.3);
+  padding: 4px;
+  justify-content: space-between;
+  align-items: center;
+  gap: 4px;
+  z-index: 9999;
+}
+
+@media (max-width: 768px) {
+  .mobile-bottom-nav-bar {
+    display: flex;
+  }
+}
+
+.mobile-bottom-nav-btn {
+  flex: 1;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  background: transparent !important;
+  border: 1px solid transparent !important;
+  outline: none !important;
+  border-radius: 22px;
+  color: rgba(255, 255, 255, 0.55);
+  font-family: inherit;
+  font-size: 0.72rem;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 0 4px;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.mobile-bottom-nav-btn .icon {
+  font-size: 1.15rem;
+  line-height: 1;
+  transition: transform 0.2s ease;
+}
+
+.mobile-bottom-nav-btn .label {
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.mobile-bottom-nav-btn:hover {
+  color: rgba(255, 255, 255, 0.85);
+  background: rgba(255, 255, 255, 0.05) !important;
+}
+
+.mobile-bottom-nav-btn.active {
+  background: linear-gradient(135deg, rgba(224, 142, 109, 0.25) 0%, rgba(180, 108, 255, 0.15) 100%) !important;
+  color: #e08e6d !important;
+  border: 1px solid rgba(224, 142, 109, 0.4) !important;
+  box-shadow: 0 4px 16px rgba(224, 142, 109, 0.22);
+}
+
+.mobile-bottom-nav-btn.active .icon {
+  transform: translateY(-1px) scale(1.1);
+}
+
+.mobile-bottom-nav-btn.active .label {
+  font-weight: 700;
+  color: #e08e6d !important;
+}
+
+/* Hide on focused editor mode */
+.workspace-shell:has(.editor-focused) .mobile-bottom-nav-bar {
+  display: none !important;
+}

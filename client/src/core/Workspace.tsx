@@ -1730,12 +1730,12 @@ export default function Workspace({
         {(activeTab === "story" || activeTab === "timeline" || activeTab === "graph" || activeTab === "journey" || activeTab === "character" || activeTab === "world" || activeTab === "history" || activeTab === "rules") && (
           <div className="mobile-bottom-nav-bar">
             {[
-              { id: "story",     label: "Outline",    icon: "≡" },
-              { id: "timeline",  label: "Timeline",   icon: "⏳" },
-              { id: "graph",     label: "Graph",      icon: "🕸️" },
-              { id: "journey",   label: "Journey",    icon: "👤" },
+              { id: "story",     label: "Outline",    icon: "📖" },
               { id: "character", label: "Characters", icon: "👥" },
-              { id: "world",     label: "World",      icon: "📍" }
+              { id: "world",     label: "World",      icon: "🌍" },
+              { id: "timeline",  label: "Timeline",   icon: "🕒" },
+              { id: "graph",     label: "Graph",      icon: "🕸️" },
+              { id: "journey",   label: "Journey",    icon: "🧭" }
             ].map(tab => (
               <button
                 key={tab.id}
