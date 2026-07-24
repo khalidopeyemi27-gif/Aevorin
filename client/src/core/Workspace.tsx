@@ -1111,12 +1111,12 @@ export default function Workspace({
 
 
           {activeTab === "export" && (() => {
-            // Sync chapter ordering on first open
-            if (compilerChapterOrdering.length === 0 && chapters.length > 0) {
-              setCompilerChapterOrdering(chapters);
-            }
-            const orderedChapters = compilerChapterOrdering.length > 0 ? compilerChapterOrdering : chapters;
-            const totalWords = scenes.reduce((s: number, sc: any) => s + (sc.word_count || 0), 0);
+            const safeChapters = Array.isArray(chapters) ? chapters : [];
+            const safeScenes = Array.isArray(scenes) ? scenes : [];
+            const safeEntities = Array.isArray(entities) ? entities : [];
+            const safeOrdering = Array.isArray(compilerChapterOrdering) ? compilerChapterOrdering : [];
+            const orderedChapters = safeOrdering.length > 0 ? safeOrdering : safeChapters;
+            const totalWords = safeScenes.reduce((s: number, sc: any) => s + (sc?.word_count || 0), 0);
 
             const SectionCard = ({ id, icon, title, children }: { id: string; icon: string; title: string; children: React.ReactNode }) => (
               <div style={{

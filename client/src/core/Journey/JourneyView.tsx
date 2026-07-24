@@ -167,7 +167,11 @@ export default function JourneyView({ projectId }: JourneyViewProps) {
     }
   };
 
-  const selectedChar = characters.find(c => c.id === selectedCharId);
+  const safeCharacters = Array.isArray(characters) ? characters : [];
+  const safeChapters = Array.isArray(chapters) ? chapters : [];
+  const safeArcs = Array.isArray(arcs) ? arcs : [];
+
+  const selectedChar = safeCharacters.find(c => c.id === selectedCharId);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", width: "100%", backgroundColor: "#0c101d", overflowY: "auto", padding: "1.5rem" }}>
@@ -182,17 +186,17 @@ export default function JourneyView({ projectId }: JourneyViewProps) {
               value={selectedCharId}
               onChange={(e) => {
                 setSelectedCharId(e.target.value);
-                const char = characters.find(c => c.id === e.target.value);
+                const char = safeCharacters.find(c => c.id === e.target.value);
                 if (char) {
                   pushFocus({ id: char.id, type: "character", name: char.title });
                 }
               }}
               style={{ background: "#1e293b", border: "1px solid rgba(255,255,255,0.15)", color: "#fff", fontSize: "0.88rem", padding: "0.25rem 0.6rem", borderRadius: "6px", outline: "none", cursor: "pointer", fontWeight: "bold", marginTop: "0.2rem" }}
             >
-              {characters.map(c => (
+              {safeCharacters.map(c => (
                 <option key={c.id} value={c.id}>{c.title}</option>
               ))}
-              {characters.length === 0 && <option value="" disabled>-- No Characters Found --</option>}
+              {safeCharacters.length === 0 && <option value="" disabled>-- No Characters Found --</option>}
             </select>
           </div>
         </div>
@@ -219,7 +223,7 @@ export default function JourneyView({ projectId }: JourneyViewProps) {
                 style={{ background: "#0f172a", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "6px", color: "white", padding: "0.4rem", fontSize: "0.8rem" }}
               >
                 <option value="">-- No Chapter Linkage (Backstory) --</option>
-                {chapters.map(ch => (
+                {safeChapters.map(ch => (
                   <option key={ch.id} value={ch.id}>Chapter {ch.chapter_number}: {ch.title}</option>
                 ))}
               </select>
@@ -335,13 +339,13 @@ export default function JourneyView({ projectId }: JourneyViewProps) {
           {/* Emotional Arc Curve SVG */}
           <div style={{ padding: "1rem", background: "rgba(20, 24, 40, 0.4)", borderRadius: "10px", border: "1px solid rgba(255,255,255,0.05)" }}>
             <h4 style={{ color: "rgba(255,255,255,0.7)", margin: "0 0 1rem 0", fontSize: "0.85rem", textAlign: "center", textTransform: "uppercase", letterSpacing: "0.05em" }}>Emotional Trajectory</h4>
-            <svg width="100%" height="100" viewBox={`0 0 ${Math.max(arcs.length * 100, 300)} 100`} style={{ overflow: "visible" }}>
+            <svg width="100%" height="100" viewBox={`0 0 ${Math.max(safeArcs.length * 100, 300)} 100`} style={{ overflow: "visible" }}>
               <line x1="0" y1="50" x2="100%" y2="50" stroke="rgba(255,255,255,0.1)" strokeWidth="1" strokeDasharray="4,4" />
               <polyline
                 fill="none"
                 stroke="#e08e6d"
                 strokeWidth="3"
-                points={arcs.map((arc, i) => {
+                points={safeArcs.map((arc, i) => {
                   let val = 0;
                   if (arc.event_type === "Climax Resolution") val = 40;
                   else if (arc.event_type === "Motivation Shift") val = 20;
@@ -353,7 +357,7 @@ export default function JourneyView({ projectId }: JourneyViewProps) {
                 }).join(" ")}
                 style={{ filter: "drop-shadow(0 4px 6px rgba(224, 142, 109, 0.4))" }}
               />
-              {arcs.map((arc, i) => {
+              {safeArcs.map((arc, i) => {
                 let val = 0;
                 if (arc.event_type === "Climax Resolution") val = 40;
                 else if (arc.event_type === "Motivation Shift") val = 20;
@@ -387,7 +391,7 @@ export default function JourneyView({ projectId }: JourneyViewProps) {
             }} 
           />
 
-          {arcs.map((arc) => {
+          {safeArcs.map((arc) => {
             const badgeBg = getEventBadgeColor(arc.event_type);
             const textCol = getEventTextColor(arc.event_type);
             
