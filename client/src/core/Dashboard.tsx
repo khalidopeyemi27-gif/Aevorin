@@ -1278,28 +1278,14 @@ export default function Dashboard({
                 borderRadius: "12px",
                 padding: "1.75rem"
               }}>
-                <h3 style={{ margin: 0, marginBottom: "0.5rem", fontSize: "1.2rem", color: "#ef4444", fontWeight: 700 }}>⚠️ Delete Manuscript?</h3>
-                <p style={{ fontSize: "0.85rem", color: "rgba(255,255,255,0.6)", lineHeight: "1.4", marginBottom: "1.25rem" }}>
-                  This action is permanent and cannot be undone. All database records, structural guidelines, and outlines will be deleted.
+                <h3 style={{ margin: 0, marginBottom: "0.5rem", fontSize: "1.2rem", color: "#ef4444", fontWeight: 700 }}>⚠️ Delete Story Manuscript?</h3>
+                <p style={{ fontSize: "0.9rem", color: "rgba(255,255,255,0.7)", lineHeight: "1.5", marginBottom: "1.5rem" }}>
+                  Are you sure you want to delete <strong style={{ color: "#fff" }}>"{projectToDelete.name}"</strong>? This will permanently remove all chapters, scenes, characters, and worldbuilding elements from your browser storage.
                 </p>
-                <div className="form-group" style={{ marginBottom: "1.5rem" }}>
-                  <label style={{ display: "block", marginBottom: "0.5rem", fontSize: "0.8", color: "rgba(255,255,255,0.7)" }}>
-                    Type <strong style={{ color: "#fff" }}>{projectToDelete.name}</strong> to confirm:
-                  </label>
-                  <input
-                    type="text"
-                    value={deleteConfirmName}
-                    onChange={(e) => setDeleteConfirmName(e.target.value)}
-                    placeholder="Enter story name..."
-                    autoFocus
-                    style={{ width: "100%", padding: "0.75rem 1rem", background: "#1c1c1c", border: "1px solid rgba(255,255,255,0.08)", borderRadius: "8px", color: "#fff", fontSize: "0.95rem" }}
-                  />
-                </div>
                 <div style={{ display: "flex", gap: "1rem", justifyContent: "flex-end" }}>
                   <Button className="btn-secondary" onClick={() => setProjectToDelete(null)}>Cancel</Button>
                   <Button 
                     className="btn-danger"
-                    disabled={deleteConfirmName !== projectToDelete.name}
                     onClick={async () => {
                       const targetName = projectToDelete.name;
                       setProjectToDelete(null);
@@ -1309,9 +1295,9 @@ export default function Dashboard({
                         setError(err.message || "Failed to delete project");
                       }
                     }}
-                    style={{ background: "#ef4444", border: "none", color: "#fff", fontWeight: 600 }}
+                    style={{ background: "#ef4444", border: "none", color: "#fff", fontWeight: 700, padding: "0.6rem 1.2rem" }}
                   >
-                    Confirm Delete
+                    🗑️ Yes, Delete Story
                   </Button>
                 </div>
               </Card>
