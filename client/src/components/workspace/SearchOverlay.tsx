@@ -13,9 +13,9 @@ interface SearchOverlayProps {
 export function SearchOverlay({
   isOpen,
   onClose,
-  entities,
-  scenes,
-  chapters,
+  entities = [],
+  scenes = [],
+  chapters = [],
   onSelectEntity,
   onSelectScene
 }: SearchOverlayProps) {
@@ -23,10 +23,14 @@ export function SearchOverlay({
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  const safeEntities = Array.isArray(entities) ? entities : [];
+  const safeScenes = Array.isArray(scenes) ? scenes : [];
+  const safeChapters = Array.isArray(chapters) ? chapters : [];
+
   // Flatten and prepare searchable items
   const items = [
     // Entities
-    ...entities.map(e => ({
+    ...safeEntities.map(e => ({
       id: `entity-${e.id}`,
       type: "Entity",
       title: e.name || "Unnamed Entity",
@@ -34,8 +38,8 @@ export function SearchOverlay({
       action: () => onSelectEntity(e.id, e.type === "character" ? "character" : "world")
     })),
     // Scenes
-    ...scenes.map(s => {
-      const chapter = chapters.find(c => c.id === s.chapter_id);
+    ...safeScenes.map(s => {
+      const chapter = safeChapters.find(c => c.id === s.chapter_id);
       return {
         id: `scene-${s.id}`,
         type: "Scene",
@@ -45,7 +49,7 @@ export function SearchOverlay({
       };
     }),
     // Chapters
-    ...chapters.map(c => ({
+    ...safeChapters.map(c => ({
       id: `chapter-${c.id}`,
       type: "Chapter",
       title: c.title || "Untitled Chapter",
