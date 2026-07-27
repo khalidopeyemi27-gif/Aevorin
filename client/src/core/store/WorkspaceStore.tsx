@@ -15,7 +15,7 @@ export interface ProjectData {
   description?: string;
 }
 
-export type WorkspaceTab = "overview" | "manuscript" | "story" | "character" | "world" | "timeline" | "history" | "rules" | "backups" | "export" | "help" | "analytics" | "knowledge" | "graph" | "journey";
+export type WorkspaceTab = "overview" | "manuscript" | "story" | "matrix" | "character" | "world" | "timeline" | "history" | "rules" | "backups" | "export" | "help" | "analytics" | "knowledge" | "graph" | "journey";
 
 interface WorkspaceStoreType {
   selectedProject: ProjectData | null;

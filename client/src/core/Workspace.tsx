@@ -76,6 +76,9 @@ const TesterSurvey = React.lazy(() => import("./TesterSurvey"));
 const TimelineView = React.lazy(() => import("./TimelineView"));
 const StoryGraph = React.lazy(() => import("./StoryGraph/StoryGraph"));
 const JourneyView = React.lazy(() => import("./Journey/JourneyView"));
+const PlotMatrix = React.lazy(() => import("./PlotMatrix/PlotMatrix"));
+import { EntityQuickCard } from "../components/workspace/EntityQuickCard";
+import { SnapshotRepository } from "../database/repositories/snapshotRepository";
 
 function LoadingPanel() {
   return (
@@ -783,6 +786,7 @@ export default function Workspace({
             >
               {[
                 { id: "story",     label: "Outline",    icon: "📖" },
+                { id: "matrix",    label: "Plot Matrix",icon: "📊" },
                 { id: "character", label: "Characters", icon: "👥" },
                 { id: "world",     label: "World",      icon: "🌍" },
                 { id: "timeline",  label: "Timeline",   icon: "🕒" },
@@ -952,6 +956,21 @@ export default function Workspace({
             <React.Suspense fallback={<LoadingPanel />}>
               <JourneyView
                 projectId={project.id}
+              />
+            </React.Suspense>
+          )}
+
+          {activeTab === "matrix" && (
+            <React.Suspense fallback={<LoadingPanel />}>
+              <PlotMatrix
+                chapters={chapters}
+                scenes={scenes}
+                entities={entities}
+                onSelectScene={(chapterId, sceneId) => {
+                  setSelectedChapterId(chapterId);
+                  if (sceneId) setSelectedSceneId(sceneId);
+                  setActiveTab("manuscript");
+                }}
               />
             </React.Suspense>
           )}
