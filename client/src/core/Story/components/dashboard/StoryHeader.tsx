@@ -8,12 +8,22 @@ interface StoryHeaderProps {
   timelineEventsCount: number;
 }
 
-export function StoryHeader({ projectName, chapters, scenes, entities, timelineEventsCount }: StoryHeaderProps) {
-  const wordCount = scenes.reduce((sum, s) => sum + (s.word_count || 0), 0);
-  const targetWords = chapters.reduce((sum, c) => sum + (c.estimated_word_count || 0), 0) || 80000;
+export function StoryHeader({
+  projectName,
+  chapters = [],
+  scenes = [],
+  entities = [],
+  timelineEventsCount = 0
+}: StoryHeaderProps) {
+  const safeChapters = Array.isArray(chapters) ? chapters : [];
+  const safeScenes = Array.isArray(scenes) ? scenes : [];
+  const safeEntities = Array.isArray(entities) ? entities : [];
+
+  const wordCount = safeScenes.reduce((sum, s) => sum + (s.word_count || 0), 0);
+  const targetWords = safeChapters.reduce((sum, c) => sum + (c.estimated_word_count || 0), 0) || 80000;
   const progressPercent = Math.min(Math.round((wordCount / targetWords) * 100), 100);
 
-  const characterCount = entities.filter(e => e.type === "character").length;
+  const characterCount = safeEntities.filter(e => e?.type === "character").length;
 
   return (
     <div style={{ background: "#242424", borderRadius: "14px", padding: "1.25rem", border: "1px solid rgba(255,255,255,0.06)", marginBottom: "1rem" }}>
@@ -38,11 +48,11 @@ export function StoryHeader({ projectName, chapters, scenes, entities, timelineE
       {/* Counters Grid */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "0.85rem", textAlign: "center" }}>
         <div style={{ background: "rgba(255,255,255,0.02)", padding: "0.6rem 0.4rem", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.04)" }}>
-          <div style={{ fontSize: "1.1rem", fontWeight: "bold", color: "#fff" }}>{chapters.length}</div>
+          <div style={{ fontSize: "1.1rem", fontWeight: "bold", color: "#fff" }}>{safeChapters.length}</div>
           <div style={{ fontSize: "0.65rem", color: "rgba(255,255,255,0.35)", textTransform: "uppercase" }}>Chapters</div>
         </div>
         <div style={{ background: "rgba(255,255,255,0.02)", padding: "0.6rem 0.4rem", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.04)" }}>
-          <div style={{ fontSize: "1.1rem", fontWeight: "bold", color: "#fff" }}>{scenes.length}</div>
+          <div style={{ fontSize: "1.1rem", fontWeight: "bold", color: "#fff" }}>{safeScenes.length}</div>
           <div style={{ fontSize: "0.65rem", color: "rgba(255,255,255,0.35)", textTransform: "uppercase" }}>Scenes</div>
         </div>
         <div style={{ background: "rgba(255,255,255,0.02)", padding: "0.6rem 0.4rem", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.04)" }}>
