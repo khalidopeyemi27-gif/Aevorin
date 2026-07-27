@@ -1287,7 +1287,7 @@ export default function Workspace({
                         </p>
                       </div>
                       <p style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.3)", marginTop: "0.75rem", lineHeight: 1.5 }}>
-                        Detected in {scenes.filter((s: any) => (s.content || "").includes("\n\n")).length} of {scenes.length} scenes.
+                        Detected in {safeScenes.filter((s: any) => (s?.content || "").includes("\n\n")).length} of {safeScenes.length} scenes.
                       </p>
                       <div style={{ marginTop: "1.25rem", display: "flex", justifyContent: "flex-end" }}>
                         <button
@@ -1462,7 +1462,7 @@ export default function Workspace({
                       ) : (
                         <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
                           {orderedChapters.map((ch: any, idx: number) => {
-                            const chScenes = scenes.filter((s: any) => s.chapter_id === ch.id);
+                            const chScenes = safeScenes.filter((s: any) => s.chapter_id === ch.id);
                             const chWords = chScenes.reduce((a: number, s: any) => a + (s.word_count || 0), 0);
                             const pct = totalWords > 0 ? Math.round((chWords / totalWords) * 100) : 0;
                             return (
