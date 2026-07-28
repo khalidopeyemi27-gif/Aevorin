@@ -235,12 +235,13 @@ export default function Manuscript({
 
   // Continue memory: load and save last active scene
   useEffect(() => {
-    if (!activeSceneId && scenes.length > 0) {
+    const safeScenes = Array.isArray(scenes) ? scenes : [];
+    if (!activeSceneId && safeScenes.length > 0) {
       const saved = localStorage.getItem(`aevorin_last_scene_${projectId}`);
-      if (saved && scenes.some(s => s.id === saved)) {
+      if (saved && safeScenes.some(s => s.id === saved)) {
         setActiveSceneId(saved);
       } else {
-        setActiveSceneId(scenes[0].id);
+        setActiveSceneId(safeScenes[0].id);
       }
     }
   }, [projectId, scenes, activeSceneId]);
@@ -312,7 +313,8 @@ export default function Manuscript({
   useEffect(() => {
     if (activeSceneId) {
       isInitialLoad.current = true;
-      const scene = scenes.find(s => s.id === activeSceneId);
+      const safeScenes = Array.isArray(scenes) ? scenes : [];
+      const scene = safeScenes.find(s => s.id === activeSceneId);
       if (scene) {
         setActiveScene(scene);
         if (editor && !editor.isDestroyed) {
