@@ -11,6 +11,7 @@ import { useLongPress } from "../hooks/useLongPress";
 import { BottomSheet, Button, PromptModal } from "../components/ui";
 import { db } from "../lib/db";
 import { SyncManager } from "../services/sync/SyncManager";
+import { ManuscriptRepository } from "../database/repositories/manuscriptRepository";
 import { MentionSuggestPopover } from "../components/workspace/MentionSuggestPopover";
 import { WritingInspector } from "../components/workspace/WritingInspector";
 import { SessionGoalsWidget } from "../components/workspace/SessionGoalsWidget";
@@ -1078,32 +1079,47 @@ export default function Manuscript({
 
   const handleQuickstart = async () => {
     try {
-      // 1. Create Chapter 1
-      const chRes = await fetch(`/api/projects/${projectId}/chapters`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: "Chapter 1" }),
-      });
-      if (!chRes.ok) throw new Error("Failed to create quickstart chapter");
-      const chData = await chRes.json();
-      
-      // Refresh chapters
+      let chId = "";
+      let scId = "";
+
+      try {
+        const chRes = await fetch(`/api/projects/${projectId}/chapters`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ title: "Chapter 1" }),
+        });
+        if (chRes.ok) {
+          const chData = await chRes.json();
+          chId = chData.id;
+        }
+      } catch (err) {}
+
+      if (!chId) {
+        const chap = await ManuscriptRepository.createChapter(projectId, "Chapter 1");
+        chId = chap.id;
+      }
+
       await onRefreshChapters();
 
-      // 2. Create Scene 1 inside Chapter 1
-      const scRes = await fetch(`/api/projects/${projectId}/scenes`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ chapterId: chData.id, title: "Untitled Scene" }),
-      });
-      if (!scRes.ok) throw new Error("Failed to create quickstart scene");
-      const scData = await scRes.json();
+      try {
+        const scRes = await fetch(`/api/projects/${projectId}/scenes`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ chapterId: chId, title: "Untitled Scene" }),
+        });
+        if (scRes.ok) {
+          const scData = await scRes.json();
+          scId = scData.id;
+        }
+      } catch (err) {}
 
-      // Refresh scenes
+      if (!scId) {
+        const sc = await ManuscriptRepository.createScene(projectId, chId, "Untitled Scene");
+        scId = sc.id;
+      }
+
       await onRefreshScenes();
-
-      // 3. Select and load the new scene
-      setActiveSceneId(scData.id);
+      setActiveSceneId(scId);
     } catch (e) {
       console.error("[Quickstart] Error creating first chapter and scene:", e);
     }
