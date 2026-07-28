@@ -9,6 +9,7 @@ import { CommandPalette } from "../components/workspace/CommandPalette";
 import { SearchOverlay } from "../components/workspace/SearchOverlay";
 import { Modal, Button, FAB, BottomSheet } from "../components/ui";
 import { EntityRepository } from "../database/repositories/entityRepository";
+import { ManuscriptRepository } from "../database/repositories/manuscriptRepository";
 
 function parseManuscriptLocally(content: string) {
   const lines = content.split(/\r?\n/);
@@ -263,21 +264,70 @@ export default function Workspace({
 
   const fetchChapters = async () => {
     try {
-      const res = await fetch(apiUrl(`/api/projects/${project.id}/chapters`));
-      const data = await res.json();
-      setChapters(data);
+      const localChapters = await ManuscriptRepository.getChapters(project.id);
+      let apiChapters: any[] = [];
+      try {
+        const res = await fetch(apiUrl(`/api/projects/${project.id}/chapters`));
+        if (res.ok) {
+          apiChapters = await res.json();
+        }
+      } catch (e) {}
+
+      const map = new Map<string, any>();
+      apiChapters.forEach(c => {
+        if (c && c.id) map.set(c.id, c);
+      });
+      localChapters.forEach(c => {
+        if (c && c.id) {
+          map.set(c.id, {
+            id: c.id,
+            title: c.title,
+            order_index: c.orderIndex || 1,
+            created_at: c.createdAt
+          });
+        }
+      });
+
+      const merged = Array.from(map.values()).sort((a, b) => (a.order_index || 0) - (b.order_index || 0));
+      setChapters(merged);
     } catch (e) {
-      console.error(e);
+      console.error("[Workspace] Error fetching chapters:", e);
     }
   };
 
   const fetchScenes = async () => {
     try {
-      const res = await fetch(apiUrl(`/api/projects/${project.id}/scenes`));
-      const data = await res.json();
-      setScenes(data);
+      const localScenes = await ManuscriptRepository.getScenes(project.id);
+      let apiScenes: any[] = [];
+      try {
+        const res = await fetch(apiUrl(`/api/projects/${project.id}/scenes`));
+        if (res.ok) {
+          apiScenes = await res.json();
+        }
+      } catch (e) {}
+
+      const map = new Map<string, any>();
+      apiScenes.forEach(s => {
+        if (s && s.id) map.set(s.id, s);
+      });
+      localScenes.forEach((s: any) => {
+        if (s && s.id) {
+          map.set(s.id, {
+            id: s.id,
+            chapter_id: s.chapterId || s.chapter_id || null,
+            title: s.title,
+            word_count: s.wordCount || s.word_count || 0,
+            order_index: s.orderIndex || s.order_index || 1,
+            status: "draft",
+            pov_entity_id: s.povEntityId || s.pov_entity_id || null
+          });
+        }
+      });
+
+      const merged = Array.from(map.values()).sort((a, b) => (a.order_index || 0) - (b.order_index || 0));
+      setScenes(merged);
     } catch (e) {
-      console.error(e);
+      console.error("[Workspace] Error fetching scenes:", e);
     }
   };
 
@@ -359,26 +409,10 @@ export default function Workspace({
   const loadAllWorkspaceData = async () => {
     setLoadingWorkspace(true);
     try {
-      const resCh = await fetch(apiUrl(`/api/projects/${project.id}/chapters`));
-      const chData = await resCh.json();
-      setChapters(chData);
-
-      const resSc = await fetch(apiUrl(`/api/projects/${project.id}/scenes`));
-      const scData = await resSc.json();
-      setScenes(scData);
-
+      await fetchChapters();
+      await fetchScenes();
       await fetchEntities();
       await fetchBackups();
-
-      if (chData && chData.length === 1 && scData && scData.length === 1) {
-        const isFirstWriteCached = localStorage.getItem(`aevorin_first_write_${project.id}`) === "true";
-        if (!isFirstWriteCached) {
-          setSelectedChapterId(chData[0].id);
-          setSelectedSceneId(scData[0].id);
-          setActiveTab("manuscript");
-          localStorage.setItem(`aevorin_first_write_${project.id}`, "true");
-        }
-      }
     } catch (e) {
       console.error(e);
     } finally {
