@@ -238,6 +238,8 @@ export default function Manuscript({
       const saved = localStorage.getItem(`aevorin_last_scene_${projectId}`);
       if (saved && scenes.some(s => s.id === saved)) {
         setActiveSceneId(saved);
+      } else {
+        setActiveSceneId(scenes[0].id);
       }
     }
   }, [projectId, scenes, activeSceneId]);
@@ -1787,12 +1789,25 @@ export default function Manuscript({
               </div>
             </div>
           ) : (
-            <div className="no-scene-loaded">
-              <span className="icon">✍️</span>
-              <p>Select or create a scene card from the sidebar draft tree to begin writing.</p>
-              <div className="guided-tip-box">
-                <strong>💡 Tip:</strong> Click the <strong>+</strong> icon next to a chapter in the sidebar or click a scene card to start writing.
-              </div>
+            <div className="no-scene-loaded" style={{ padding: "3rem", textAlign: "center" }}>
+              <span className="icon" style={{ fontSize: "3rem" }}>✍️</span>
+              <h3 style={{ color: "#fff", marginTop: "1rem" }}>No Active Scene Selected</h3>
+              <p style={{ color: "rgba(255,255,255,0.6)", maxWidth: "400px", margin: "0.5rem auto 1.5rem auto" }}>
+                Select a scene from the left navigation tree or click the button below to start writing immediately.
+              </p>
+              <button
+                className="btn btn-primary btn-lg"
+                onClick={() => {
+                  if (scenes.length > 0) {
+                    setActiveSceneId(scenes[0].id);
+                  } else {
+                    handleQuickstart();
+                  }
+                }}
+                style={{ background: "#9f8ad0", color: "#fff", border: "none", padding: "0.75rem 1.5rem", borderRadius: "8px", fontWeight: 700, cursor: "pointer" }}
+              >
+                ✏️ Start Writing Now
+              </button>
             </div>
           )
         )}
