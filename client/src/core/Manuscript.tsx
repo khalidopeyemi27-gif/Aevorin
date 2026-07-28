@@ -1685,6 +1685,32 @@ export default function Manuscript({
               {/* Editor Workspace Content */}
               <div className={`editor-textarea-scroll ${isTypewriter ? "typewriter-active" : ""}`} style={{ padding: "3rem 1.5rem" }}>
                 <div style={{ maxWidth: preferences.pageWidth || 650, margin: "0 auto" }}>
+                  {/* Chapter Header Banner & Breadcrumb */}
+                  {(() => {
+                    const safeChaps = Array.isArray(chapters) ? chapters : [];
+                    const activeChapter = safeChaps.find(c => c.id === activeScene.chapter_id);
+                    
+                    return (
+                      <div style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "0.5rem",
+                        marginBottom: "0.75rem",
+                        padding: "0.4rem 0.85rem",
+                        background: "rgba(159, 138, 208, 0.12)",
+                        border: "1px solid rgba(159, 138, 208, 0.25)",
+                        borderRadius: "20px",
+                        width: "fit-content"
+                      }}>
+                        <span style={{ color: "#9f8ad0", fontSize: "0.82rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                          📖 {activeChapter ? activeChapter.title : "Uncategorized Chapter"}
+                        </span>
+                        <span style={{ color: "rgba(255,255,255,0.3)", fontSize: "0.75rem" }}>•</span>
+                        <span style={{ color: "rgba(255,255,255,0.6)", fontSize: "0.8rem", fontWeight: 500 }}>Scene</span>
+                      </div>
+                    );
+                  })()}
+
                   <input
                     type="text"
                     value={activeScene.title}
