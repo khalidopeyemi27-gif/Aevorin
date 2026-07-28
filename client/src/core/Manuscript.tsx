@@ -12,6 +12,7 @@ import { BottomSheet, Button, PromptModal } from "../components/ui";
 import { db } from "../lib/db";
 import { SyncManager } from "../services/sync/SyncManager";
 import { ManuscriptRepository } from "../database/repositories/manuscriptRepository";
+import { EntityRepository } from "../database/repositories/entityRepository";
 import { MentionSuggestPopover } from "../components/workspace/MentionSuggestPopover";
 import { WritingInspector } from "../components/workspace/WritingInspector";
 import { SessionGoalsWidget } from "../components/workspace/SessionGoalsWidget";
@@ -253,6 +254,25 @@ export default function Manuscript({
   const [typewriterOffset, setTypewriterOffset] = useState<number>(42);
   const [showWritingInspector, setShowWritingInspector] = useState(false);
   const [isFocusFaded, setIsFocusFaded] = useState(false);
+
+  // Quick Actions & Quick Entity Creator State
+  const [quickActionsOpen, setQuickActionsOpen] = useState(false);
+  const [quickEntityModalOpen, setQuickEntityModalOpen] = useState(false);
+  const [quickEntityName, setQuickEntityName] = useState("");
+  const [quickEntityType, setQuickEntityType] = useState("character");
+  const [quickEntitySummary, setQuickEntitySummary] = useState("");
+
+  // Global Ctrl+K / Cmd+K Command Palette Trigger
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setQuickActionsOpen((prev) => !prev);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   // Character Consistency Engine State
   const [consistencyIssues, setConsistencyIssues] = useState<any[]>([]);
@@ -1191,6 +1211,47 @@ export default function Manuscript({
       }
     } catch (e) {
       console.error("[CleanUpDuplicates Error]", e);
+    }
+  };
+
+  const handleSaveQuickEntity = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!quickEntityName.trim()) return;
+    try {
+      let createdEntityId = "";
+      try {
+        const res = await fetch(apiUrl(`/api/projects/${projectId}/entities`), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: quickEntityName.trim(),
+            type: quickEntityType,
+            summary: quickEntitySummary.trim()
+          })
+        });
+        if (res.ok) {
+          const data = await res.json();
+          createdEntityId = data.id;
+        }
+      } catch (err) {}
+
+      if (!createdEntityId) {
+        const ent = await EntityRepository.createEntity({
+          projectId,
+          title: quickEntityName.trim(),
+          type: quickEntityType,
+          summary: quickEntitySummary.trim()
+        });
+        createdEntityId = ent.id;
+      }
+
+      setQuickEntityName("");
+      setQuickEntitySummary("");
+      setQuickEntityModalOpen(false);
+      showToast(`Added @${quickEntityName.trim()} to Story Bible!`, "success");
+    } catch (err) {
+      console.error("[Quick Entity Creation Failed]", err);
+      showToast("Failed to create entity", "error");
     }
   };
 
@@ -2429,6 +2490,356 @@ export default function Manuscript({
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Floating Action Button (FAB) Bottom Right */}
+      <button
+        onClick={() => setQuickActionsOpen(true)}
+        style={{
+          position: "fixed",
+          bottom: "2rem",
+          right: "2rem",
+          width: "52px",
+          height: "52px",
+          borderRadius: "50%",
+          background: "linear-gradient(135deg, #9f8ad0, #7c3aed)",
+          color: "#fff",
+          border: "none",
+          boxShadow: "0 10px 25px rgba(124, 58, 237, 0.5)",
+          fontSize: "1.3rem",
+          fontWeight: "bold",
+          cursor: "pointer",
+          zIndex: 999,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          transition: "transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275)"
+        }}
+        title="Quick Actions (Ctrl + K)"
+      >
+        ✦
+      </button>
+
+      {/* Quick Actions Sheet & Command Palette (Ctrl + K) */}
+      {quickActionsOpen && (
+        <div style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: "rgba(10, 9, 18, 0.75)",
+          backdropFilter: "blur(10px)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 99999
+        }} onClick={() => setQuickActionsOpen(false)}>
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: "#161525",
+              border: "1px solid rgba(159, 138, 208, 0.25)",
+              borderRadius: "16px",
+              padding: "1.5rem",
+              maxWidth: "460px",
+              width: "90%",
+              boxShadow: "0 25px 50px rgba(0,0,0,0.7)",
+              color: "#fff"
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.25rem" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                <span style={{ fontSize: "1.2rem" }}>✦</span>
+                <span style={{ fontWeight: 800, fontSize: "1.05rem", color: "#fff" }}>Quick Actions</span>
+              </div>
+              <span style={{ fontSize: "0.72rem", background: "rgba(255,255,255,0.08)", padding: "0.25rem 0.6rem", borderRadius: "6px", color: "#9f8ad0", fontWeight: 700 }}>
+                Ctrl + K
+              </span>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.85rem" }}>
+              {/* Add New Scene */}
+              <button
+                onClick={() => {
+                  setQuickActionsOpen(false);
+                  const title = window.prompt("New Scene Title:");
+                  if (title && title.trim()) {
+                    ManuscriptRepository.createScene(projectId, activeScene?.chapter_id || "", title.trim()).then((sc) => {
+                      onRefreshScenes();
+                      setActiveSceneId(sc.id);
+                    });
+                  }
+                }}
+                style={{
+                  background: "rgba(255,255,255,0.04)",
+                  border: "1px solid rgba(255,255,255,0.08)",
+                  borderRadius: "10px",
+                  padding: "0.85rem",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "flex-start",
+                  gap: "0.35rem",
+                  color: "#fff",
+                  cursor: "pointer",
+                  textAlign: "left"
+                }}
+              >
+                <div style={{ display: "flex", justifyContent: "space-between", width: "100%", alignItems: "center" }}>
+                  <span style={{ fontSize: "1.1rem" }}>📄</span>
+                  <span style={{ fontSize: "0.68rem", color: "#94a3b8", background: "rgba(255,255,255,0.06)", padding: "0.15rem 0.4rem", borderRadius: "4px" }}>[S]</span>
+                </div>
+                <span style={{ fontWeight: 700, fontSize: "0.85rem" }}>New Scene</span>
+                <span style={{ fontSize: "0.72rem", color: "#94a3b8" }}>Add scene to current chapter</span>
+              </button>
+
+              {/* Add New Chapter */}
+              <button
+                onClick={() => {
+                  setQuickActionsOpen(false);
+                  const title = window.prompt("New Chapter Title:");
+                  if (title && title.trim()) {
+                    ManuscriptRepository.createChapter(projectId, title.trim()).then(() => {
+                      onRefreshChapters();
+                    });
+                  }
+                }}
+                style={{
+                  background: "rgba(255,255,255,0.04)",
+                  border: "1px solid rgba(255,255,255,0.08)",
+                  borderRadius: "10px",
+                  padding: "0.85rem",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "flex-start",
+                  gap: "0.35rem",
+                  color: "#fff",
+                  cursor: "pointer",
+                  textAlign: "left"
+                }}
+              >
+                <div style={{ display: "flex", justifyContent: "space-between", width: "100%", alignItems: "center" }}>
+                  <span style={{ fontSize: "1.1rem" }}>📝</span>
+                  <span style={{ fontSize: "0.68rem", color: "#94a3b8", background: "rgba(255,255,255,0.06)", padding: "0.15rem 0.4rem", borderRadius: "4px" }}>[N]</span>
+                </div>
+                <span style={{ fontWeight: 700, fontSize: "0.85rem" }}>New Chapter</span>
+                <span style={{ fontSize: "0.72rem", color: "#94a3b8" }}>Create new chapter section</span>
+              </button>
+
+              {/* Quick Character / Entity Creator */}
+              <button
+                onClick={() => {
+                  setQuickActionsOpen(false);
+                  setQuickEntityModalOpen(true);
+                }}
+                style={{
+                  background: "rgba(255,255,255,0.04)",
+                  border: "1px solid rgba(255,255,255,0.08)",
+                  borderRadius: "10px",
+                  padding: "0.85rem",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "flex-start",
+                  gap: "0.35rem",
+                  color: "#fff",
+                  cursor: "pointer",
+                  textAlign: "left"
+                }}
+              >
+                <div style={{ display: "flex", justifyContent: "space-between", width: "100%", alignItems: "center" }}>
+                  <span style={{ fontSize: "1.1rem" }}>👤</span>
+                  <span style={{ fontSize: "0.68rem", color: "#94a3b8", background: "rgba(255,255,255,0.06)", padding: "0.15rem 0.4rem", borderRadius: "4px" }}>[C]</span>
+                </div>
+                <span style={{ fontWeight: 700, fontSize: "0.85rem" }}>Add Character / Item</span>
+                <span style={{ fontSize: "0.72rem", color: "#94a3b8" }}>Save entity to Story Bible</span>
+              </button>
+
+              {/* Toggle Focus Mode */}
+              <button
+                onClick={() => {
+                  setQuickActionsOpen(false);
+                  setLeftCollapsed(true);
+                  setRightCollapsed(true);
+                  showToast("Focus Mode Activated (Sidebars collapsed)", "info");
+                }}
+                style={{
+                  background: "rgba(255,255,255,0.04)",
+                  border: "1px solid rgba(255,255,255,0.08)",
+                  borderRadius: "10px",
+                  padding: "0.85rem",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "flex-start",
+                  gap: "0.35rem",
+                  color: "#fff",
+                  cursor: "pointer",
+                  textAlign: "left"
+                }}
+              >
+                <div style={{ display: "flex", justifyContent: "space-between", width: "100%", alignItems: "center" }}>
+                  <span style={{ fontSize: "1.1rem" }}>👁</span>
+                  <span style={{ fontSize: "0.68rem", color: "#94a3b8", background: "rgba(255,255,255,0.06)", padding: "0.15rem 0.4rem", borderRadius: "4px" }}>[F]</span>
+                </div>
+                <span style={{ fontWeight: 700, fontSize: "0.85rem" }}>Focus Mode</span>
+                <span style={{ fontSize: "0.72rem", color: "#94a3b8" }}>Collapse all UI sidebars</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Quick Character / Entity Creator Inline Modal */}
+      {quickEntityModalOpen && (
+        <div style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: "rgba(10, 9, 18, 0.75)",
+          backdropFilter: "blur(8px)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 99999
+        }} onClick={() => setQuickEntityModalOpen(false)}>
+          <form
+            onSubmit={handleSaveQuickEntity}
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: "#181726",
+              border: "1px solid rgba(159, 138, 208, 0.3)",
+              borderRadius: "16px",
+              padding: "1.75rem",
+              maxWidth: "440px",
+              width: "90%",
+              boxShadow: "0 25px 50px rgba(0,0,0,0.7)",
+              color: "#fff",
+              display: "flex",
+              flexDirection: "column",
+              gap: "1rem"
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                <span style={{ fontSize: "1.3rem" }}>👤</span>
+                <strong style={{ fontSize: "1.1rem" }}>Add to Story Bible</strong>
+              </div>
+              <button
+                type="button"
+                onClick={() => setQuickEntityModalOpen(false)}
+                style={{ background: "none", border: "none", color: "#94a3b8", fontSize: "1.1rem", cursor: "pointer" }}
+              >
+                ×
+              </button>
+            </div>
+
+            <div>
+              <label style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.7)", display: "block", marginBottom: "0.3rem" }}>
+                Name / Title
+              </label>
+              <input
+                type="text"
+                value={quickEntityName}
+                onChange={(e) => setQuickEntityName(e.target.value)}
+                placeholder="e.g. Alice Ashford, Northern Kingdom, Vorpal Sword"
+                style={{
+                  width: "100%",
+                  padding: "0.6rem 0.85rem",
+                  background: "rgba(255,255,255,0.05)",
+                  border: "1px solid rgba(255,255,255,0.12)",
+                  borderRadius: "8px",
+                  color: "#fff",
+                  fontSize: "0.9rem"
+                }}
+                autoFocus
+                required
+              />
+            </div>
+
+            <div style={{ display: "flex", gap: "0.75rem" }}>
+              <div style={{ flex: 1 }}>
+                <label style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.7)", display: "block", marginBottom: "0.3rem" }}>
+                  Category
+                </label>
+                <select
+                  value={quickEntityType}
+                  onChange={(e) => setQuickEntityType(e.target.value)}
+                  style={{
+                    width: "100%",
+                    padding: "0.6rem",
+                    background: "#12111d",
+                    border: "1px solid rgba(255,255,255,0.12)",
+                    borderRadius: "8px",
+                    color: "#fff",
+                    fontSize: "0.85rem"
+                  }}
+                >
+                  <option value="character">Character</option>
+                  <option value="location">Location</option>
+                  <option value="faction">Faction / Realm</option>
+                  <option value="item">Item / Artifact</option>
+                  <option value="lore">Lore / Concept</option>
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.7)", display: "block", marginBottom: "0.3rem" }}>
+                Quick Summary / Bio
+              </label>
+              <textarea
+                value={quickEntitySummary}
+                onChange={(e) => setQuickEntitySummary(e.target.value)}
+                placeholder="Brief role, backstory, or key traits..."
+                rows={3}
+                style={{
+                  width: "100%",
+                  padding: "0.6rem 0.85rem",
+                  background: "rgba(255,255,255,0.05)",
+                  border: "1px solid rgba(255,255,255,0.12)",
+                  borderRadius: "8px",
+                  color: "#fff",
+                  fontSize: "0.85rem",
+                  resize: "vertical"
+                }}
+              />
+            </div>
+
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.75rem", marginTop: "0.5rem" }}>
+              <button
+                type="button"
+                onClick={() => setQuickEntityModalOpen(false)}
+                style={{
+                  background: "rgba(255,255,255,0.08)",
+                  color: "#cbd5e1",
+                  border: "none",
+                  padding: "0.55rem 1.1rem",
+                  borderRadius: "8px",
+                  fontSize: "0.85rem",
+                  cursor: "pointer"
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                style={{
+                  background: "#9f8ad0",
+                  color: "#fff",
+                  border: "none",
+                  padding: "0.55rem 1.25rem",
+                  borderRadius: "8px",
+                  fontSize: "0.85rem",
+                  fontWeight: 700,
+                  cursor: "pointer"
+                }}
+              >
+                + Save to Story Bible
+              </button>
+            </div>
+          </form>
         </div>
       )}
     </div>
