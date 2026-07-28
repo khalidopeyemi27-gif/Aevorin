@@ -1830,29 +1830,10 @@ export default function Workspace({
       </StoryRoomProvider>
     </main>
 
-      {/* Global Quick Actions FAB */}
-      <FAB icon="✦" onClick={() => setShowQuickActions(true)} />
-
-      <BottomSheet isOpen={showQuickActions} onClose={() => setShowQuickActions(false)} title="Quick Actions">
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem" }}>
-          <Button onClick={() => { setShowQuickActions(false); setActiveTab("manuscript"); setTriggerAction("create-chapter"); }} style={{ background: "rgba(255,255,255,0.05)", padding: "1rem", textAlign: "left", fontSize: "0.9rem" }}>
-            <div style={{ fontSize: "1.2rem", marginBottom: "0.3rem" }}>📝</div>
-            <div>New Chapter</div>
-          </Button>
-          <Button onClick={() => { setShowQuickActions(false); setActiveTab("character"); setTriggerAction("create-character"); }} style={{ background: "rgba(255,255,255,0.05)", padding: "1rem", textAlign: "left", fontSize: "0.9rem" }}>
-            <div style={{ fontSize: "1.2rem", marginBottom: "0.3rem" }}>👤</div>
-            <div>New Character</div>
-          </Button>
-          <Button onClick={() => { setShowQuickActions(false); setShowSearchOverlay(true); }} style={{ background: "rgba(255,255,255,0.05)", padding: "1rem", textAlign: "left", fontSize: "0.9rem" }}>
-            <div style={{ fontSize: "1.2rem", marginBottom: "0.3rem" }}>🔍</div>
-            <div>Search Story</div>
-          </Button>
-          <Button onClick={() => { setShowQuickActions(false); setFocusMode(!focusMode); }} style={{ background: "rgba(255,255,255,0.05)", padding: "1rem", textAlign: "left", fontSize: "0.9rem" }}>
-            <div style={{ fontSize: "1.2rem", marginBottom: "0.3rem" }}>👁️</div>
-            <div>{focusMode ? "Exit Focus Mode" : "Focus Mode"}</div>
-          </Button>
-        </div>
-      </BottomSheet>
+      {/* Global Quick Actions FAB for Non-Manuscript Views */}
+      {activeTab !== "manuscript" && (
+        <FAB icon="✦" onClick={() => setShowCommandPalette(true)} />
+      )}
 
       {/* Command Palette Component */}
       <CommandPalette
