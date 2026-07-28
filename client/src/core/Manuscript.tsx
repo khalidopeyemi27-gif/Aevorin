@@ -1683,8 +1683,8 @@ export default function Manuscript({
               )}
 
               {/* Editor Workspace Content */}
-              <div className={`editor-textarea-scroll ${isTypewriter ? "typewriter-active" : ""}`} style={{ padding: "3rem 1.5rem" }}>
-                <div style={{ maxWidth: preferences.pageWidth || 650, margin: "0 auto" }}>
+              <div className={`editor-textarea-scroll ${isTypewriter ? "typewriter-active" : ""}`} style={{ padding: "3rem 1.5rem 180px 1.5rem" }}>
+                <div style={{ maxWidth: readingWidth === "compact" ? 680 : readingWidth === "comfort" ? 750 : 850, margin: "0 auto" }}>
                   {/* Chapter Header Banner & Breadcrumb */}
                   {(() => {
                     const safeChaps = Array.isArray(chapters) ? chapters : [];
@@ -1695,18 +1695,16 @@ export default function Manuscript({
                         display: "flex",
                         alignItems: "center",
                         gap: "0.5rem",
-                        marginBottom: "0.75rem",
-                        padding: "0.4rem 0.85rem",
-                        background: "rgba(159, 138, 208, 0.12)",
-                        border: "1px solid rgba(159, 138, 208, 0.25)",
-                        borderRadius: "20px",
-                        width: "fit-content"
+                        marginBottom: "0.85rem",
+                        padding: 0,
+                        background: "transparent",
+                        border: "none"
                       }}>
-                        <span style={{ color: "#9f8ad0", fontSize: "0.82rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em" }}>
-                          📖 {activeChapter ? activeChapter.title : "Uncategorized Chapter"}
+                        <span style={{ color: "#9f8ad0", fontSize: "0.82rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", opacity: 0.9 }}>
+                          📖 {activeChapter ? activeChapter.title : "UNCATEGORIZED CHAPTER"}
                         </span>
                         <span style={{ color: "rgba(255,255,255,0.3)", fontSize: "0.75rem" }}>•</span>
-                        <span style={{ color: "rgba(255,255,255,0.6)", fontSize: "0.8rem", fontWeight: 500 }}>Scene</span>
+                        <span style={{ color: "rgba(255,255,255,0.5)", fontSize: "0.8rem", fontWeight: 500 }}>Scene</span>
                       </div>
                     );
                   })()}
@@ -2245,12 +2243,14 @@ export default function Manuscript({
         <button
           onClick={() => setLeftCollapsed(!leftCollapsed)}
           style={{
-            background: "none",
-            border: "none",
-            color: !leftCollapsed ? "#e08e6d" : "rgba(255,255,255,0.5)",
+            background: !leftCollapsed ? "rgba(159, 138, 208, 0.25)" : "transparent",
+            border: !leftCollapsed ? "1px solid rgba(159, 138, 208, 0.4)" : "1px solid transparent",
+            borderRadius: "20px",
+            padding: "0.25rem 0.65rem",
+            color: !leftCollapsed ? "#9f8ad0" : "rgba(255,255,255,0.5)",
             fontSize: "1.1rem",
             cursor: "pointer",
-            transition: "color 0.2s"
+            transition: "all 0.2s ease-in-out"
           }}
           title={leftCollapsed ? "Show Outline Sidebar" : "Hide Outline Sidebar"}
         >
@@ -2261,13 +2261,15 @@ export default function Manuscript({
         <button
           onClick={() => setShowTypographySettings(!showTypographySettings)}
           style={{
-            background: "none",
-            border: "none",
-            color: showTypographySettings ? "#e08e6d" : "rgba(255,255,255,0.5)",
+            background: showTypographySettings ? "rgba(159, 138, 208, 0.25)" : "transparent",
+            border: showTypographySettings ? "1px solid rgba(159, 138, 208, 0.4)" : "1px solid transparent",
+            borderRadius: "20px",
+            padding: "0.25rem 0.65rem",
+            color: showTypographySettings ? "#9f8ad0" : "rgba(255,255,255,0.5)",
             fontSize: "1rem",
             fontWeight: 700,
             cursor: "pointer",
-            transition: "color 0.2s"
+            transition: "all 0.2s ease-in-out"
           }}
           title="Typography Settings"
         >
@@ -2278,12 +2280,14 @@ export default function Manuscript({
         <button
           onClick={() => setRightCollapsed(!rightCollapsed)}
           style={{
-            background: "none",
-            border: "none",
-            color: !rightCollapsed ? "#e08e6d" : "rgba(255,255,255,0.5)",
+            background: !rightCollapsed ? "rgba(159, 138, 208, 0.25)" : "transparent",
+            border: !rightCollapsed ? "1px solid rgba(159, 138, 208, 0.4)" : "1px solid transparent",
+            borderRadius: "20px",
+            padding: "0.25rem 0.65rem",
+            color: !rightCollapsed ? "#9f8ad0" : "rgba(255,255,255,0.5)",
             fontSize: "1.1rem",
             cursor: "pointer",
-            transition: "color 0.2s"
+            transition: "all 0.2s ease-in-out"
           }}
           title={rightCollapsed ? "Show Scene Card Details" : "Hide Scene Card Details"}
         >

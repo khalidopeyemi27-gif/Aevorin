@@ -3,15 +3,18 @@ import React, { useState, useEffect } from "react";
 interface SessionGoalsWidgetProps {
   currentWordCount: number;
   targetDailyWords?: number;
+  onUpdateDailyGoal?: (newGoal: number) => void;
 }
 
 export function SessionGoalsWidget({
   currentWordCount,
-  targetDailyWords = 1000
+  targetDailyWords = 1000,
+  onUpdateDailyGoal
 }: SessionGoalsWidgetProps) {
   const [sessionStartWords] = useState(currentWordCount);
   const [sessionMinutes, setSessionMinutes] = useState(0);
   const [showDetail, setShowDetail] = useState(false);
+  const [customGoal, setCustomGoal] = useState(targetDailyWords.toString());
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -39,6 +42,7 @@ export function SessionGoalsWidget({
           cursor: "pointer",
           userSelect: "none"
         }}
+        title="Click to view & edit daily target"
       >
         <span style={{ fontSize: "0.78rem", fontWeight: 700, color: "#fff" }}>
           🎯 Goal: {currentWordCount} / {targetDailyWords}
@@ -61,7 +65,7 @@ export function SessionGoalsWidget({
             position: "absolute",
             top: "110%",
             right: 0,
-            width: "240px",
+            width: "250px",
             background: "#1c1b29",
             border: "1px solid rgba(224, 142, 109, 0.3)",
             borderRadius: "12px",
@@ -71,11 +75,19 @@ export function SessionGoalsWidget({
             color: "#fff"
           }}
         >
-          <div style={{ fontSize: "0.68rem", color: "#e08e6d", textTransform: "uppercase", fontWeight: 800, marginBottom: "0.5rem" }}>
-            Session Writing Goals
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.5rem" }}>
+            <span style={{ fontSize: "0.68rem", color: "#e08e6d", textTransform: "uppercase", fontWeight: 800 }}>
+              Session Writing Goals
+            </span>
+            <button
+              onClick={() => setShowDetail(false)}
+              style={{ background: "none", border: "none", color: "#94a3b8", fontSize: "0.9rem", cursor: "pointer" }}
+            >
+              ×
+            </button>
           </div>
 
-          <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem", fontSize: "0.82rem" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem", fontSize: "0.82rem", marginBottom: "0.85rem" }}>
             <div style={{ display: "flex", justifyContent: "space-between" }}>
               <span style={{ color: "rgba(255,255,255,0.6)" }}>Session Words</span>
               <span style={{ color: "#34d399", fontWeight: 700 }}>+{sessionWords}</span>
@@ -87,6 +99,35 @@ export function SessionGoalsWidget({
             <div style={{ display: "flex", justifyContent: "space-between" }}>
               <span style={{ color: "rgba(255,255,255,0.6)" }}>Writing Time</span>
               <span style={{ color: "#9f8ad0", fontWeight: 700 }}>{sessionMinutes} min</span>
+            </div>
+          </div>
+
+          <div style={{ borderTop: "1px solid rgba(255,255,255,0.08)", paddingTop: "0.65rem" }}>
+            <div style={{ fontSize: "0.7rem", color: "rgba(255,255,255,0.6)", marginBottom: "0.4rem" }}>
+              Daily Word Target:
+            </div>
+            <div style={{ display: "flex", gap: "0.3rem", flexWrap: "wrap", marginBottom: "0.5rem" }}>
+              {[500, 1000, 1500, 2000].map((val) => (
+                <button
+                  key={val}
+                  onClick={() => {
+                    if (onUpdateDailyGoal) onUpdateDailyGoal(val);
+                    setCustomGoal(val.toString());
+                  }}
+                  style={{
+                    background: targetDailyWords === val ? "#e08e6d" : "rgba(255,255,255,0.06)",
+                    color: "#fff",
+                    border: "none",
+                    borderRadius: "4px",
+                    padding: "0.25rem 0.45rem",
+                    fontSize: "0.72rem",
+                    fontWeight: 700,
+                    cursor: "pointer"
+                  }}
+                >
+                  {val.toLocaleString()}
+                </button>
+              ))}
             </div>
           </div>
         </div>
