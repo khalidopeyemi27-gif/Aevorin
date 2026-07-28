@@ -1228,13 +1228,20 @@ export default function Manuscript({
 
           <h3>Manuscript Drafts</h3>
           
-          <form onSubmit={handleAddChapter} className="tree-form">
+          <form onSubmit={handleAddChapter} style={{ display: "flex", gap: "0.4rem", marginBottom: "1rem" }}>
             <input
               type="text"
-              placeholder="+ Add Chapter"
+              placeholder="New Chapter Title..."
               value={newChapterTitle}
               onChange={(e) => setNewChapterTitle(e.target.value)}
+              style={{ flex: 1, padding: "0.45rem 0.65rem", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "6px", color: "#fff", fontSize: "0.82rem" }}
             />
+            <button
+              type="submit"
+              style={{ background: "#9f8ad0", color: "#fff", border: "none", borderRadius: "6px", padding: "0.45rem 0.75rem", fontSize: "0.8rem", fontWeight: 700, cursor: "pointer" }}
+            >
+              + Add
+            </button>
           </form>
 
           <div className="tree-list">
@@ -1290,22 +1297,33 @@ export default function Manuscript({
             )}
           </div>
 
-          <form onSubmit={handleAddScene} className="tree-form scene-add-form">
+          <form onSubmit={handleAddScene} style={{ display: "flex", flexDirection: "column", gap: "0.5rem", marginTop: "1rem", padding: "0.75rem", background: "rgba(255,255,255,0.03)", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.06)" }}>
+            <div style={{ fontSize: "0.68rem", color: "#e08e6d", fontWeight: 700, textTransform: "uppercase" }}>Add New Scene</div>
             <input
               type="text"
-              placeholder="+ Add Scene"
+              placeholder="New Scene Title..."
               value={newSceneTitle}
               onChange={(e) => setNewSceneTitle(e.target.value)}
+              style={{ padding: "0.45rem 0.65rem", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "6px", color: "#fff", fontSize: "0.82rem" }}
             />
-            <select
-              value={selectedChapterId || "uncategorized"}
-              onChange={(e) => setSelectedChapterId(e.target.value === "uncategorized" ? null : e.target.value)}
-            >
-              <option value="uncategorized">No Chapter</option>
-              {(Array.isArray(chapters) ? chapters : []).map(ch => (
-                <option key={ch.id} value={ch.id}>{ch.title}</option>
-              ))}
-            </select>
+            <div style={{ display: "flex", gap: "0.4rem" }}>
+              <select
+                value={selectedChapterId || "uncategorized"}
+                onChange={(e) => setSelectedChapterId(e.target.value === "uncategorized" ? null : e.target.value)}
+                style={{ flex: 1, padding: "0.45rem", background: "#1c1b29", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "6px", color: "#fff", fontSize: "0.78rem" }}
+              >
+                <option value="uncategorized">No Chapter</option>
+                {(Array.isArray(chapters) ? chapters : []).map(ch => (
+                  <option key={ch.id} value={ch.id}>{ch.title}</option>
+                ))}
+              </select>
+              <button
+                type="submit"
+                style={{ background: "#e08e6d", color: "#fff", border: "none", borderRadius: "6px", padding: "0.45rem 0.75rem", fontSize: "0.8rem", fontWeight: 700, cursor: "pointer" }}
+              >
+                + Create
+              </button>
+            </div>
           </form>
         </aside>
 
