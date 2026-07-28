@@ -317,45 +317,45 @@ export default function Manuscript({
       const scene = safeScenes.find(s => s.id === activeSceneId);
       if (scene) {
         setActiveScene(scene);
-        if (editor && !editor.isDestroyed) {
+        
+        // 🌟 Read latest draft content from IndexedDB Dexie / LocalStorage first!
+        (async () => {
+          let contentToSet = scene.content || "";
+          
           try {
-            const parsed = JSON.parse(scene.content);
-            editor.commands.setContent(parsed);
-          } catch (e) {
-            editor.commands.setContent(scene.content || "");
-          }
-          const plainText = editor.getText();
-          if (plainText.trim() === "") {
-            setTimeout(() => {
-              if (editor && !editor.isDestroyed) {
-                editor.commands.focus("end");
+            const localDraft = await db.drafts.where("sceneId").equals(scene.id).first();
+            if (localDraft && localDraft.contentDelta) {
+              contentToSet = localDraft.contentDelta;
+            } else {
+              const localDbScene = await db.scenes.get(scene.id);
+              if (localDbScene && localDbScene.content) {
+                contentToSet = localDbScene.content;
               }
-            }, 100);
+            }
+          } catch (e) {}
+
+          const savedRecovery = localStorage.getItem(`aevorin_recovery_${scene.id}`);
+          if (savedRecovery) {
+            try {
+              const parsed = JSON.parse(savedRecovery);
+              if (parsed && parsed.content) {
+                contentToSet = JSON.stringify(parsed.content);
+              }
+            } catch (e) {}
           }
-        }
+
+          if (editor && !editor.isDestroyed) {
+            try {
+              const parsed = JSON.parse(contentToSet);
+              editor.commands.setContent(parsed);
+            } catch (e) {
+              editor.commands.setContent(contentToSet);
+            }
+          }
+        })();
+
         fetchVersionHistory(scene.id);
         setDirty(false);
-
-        // CHECK FOR LOCAL RECOVERY DRAFT STATE
-        const savedRecovery = localStorage.getItem(`aevorin_recovery_${scene.id}`);
-        if (savedRecovery) {
-          try {
-            const parsed = JSON.parse(savedRecovery);
-            const dbContentStr = scene.content || "";
-            const recoveryContentStr = JSON.stringify(parsed.content);
-            
-            if (dbContentStr !== recoveryContentStr) {
-              setRecoveryDraft(parsed);
-            } else {
-              localStorage.removeItem(`aevorin_recovery_${scene.id}`);
-              setRecoveryDraft(null);
-            }
-          } catch (e) {
-            console.error("[Recovery] Failed parsing local storage restore:", e);
-          }
-        } else {
-          setRecoveryDraft(null);
-        }
       }
       // Re-enable dirty logging after rendering finishes
       setTimeout(() => {
