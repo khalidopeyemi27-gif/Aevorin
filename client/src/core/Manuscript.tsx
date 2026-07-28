@@ -999,18 +999,27 @@ export default function Manuscript({
 
   const handleAddChapter = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newChapterTitle.trim()) return;
+    const title = newChapterTitle.trim();
+    if (!title) return;
     try {
-      const res = await fetch(`/api/projects/${projectId}/chapters`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: newChapterTitle.trim() }),
-      });
-      if (!res.ok) throw new Error("Failed to create chapter");
+      let created = false;
+      try {
+        const res = await fetch(`/api/projects/${projectId}/chapters`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ title }),
+        });
+        if (res.ok) created = true;
+      } catch (err) {}
+
+      if (!created) {
+        await ManuscriptRepository.createChapter(projectId, title);
+      }
+
       setNewChapterTitle("");
       await onRefreshChapters();
     } catch (e) {
-      console.error(e);
+      console.error("[Add Chapter Failed]", e);
     }
   };
 
@@ -1047,21 +1056,33 @@ export default function Manuscript({
 
   const handleAddScene = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newSceneTitle.trim()) return;
+    const title = newSceneTitle.trim();
+    if (!title) return;
     const chapterId = selectedChapterId === "uncategorized" ? null : selectedChapterId;
     try {
-      const res = await fetch(`/api/projects/${projectId}/scenes`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ chapterId, title: newSceneTitle.trim() }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error("Failed to create scene");
+      let createdScId = "";
+      try {
+        const res = await fetch(`/api/projects/${projectId}/scenes`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ chapterId, title }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          createdScId = data.id;
+        }
+      } catch (err) {}
+
+      if (!createdScId) {
+        const sc = await ManuscriptRepository.createScene(projectId, chapterId || "", title);
+        createdScId = sc.id;
+      }
+
       setNewSceneTitle("");
       await onRefreshScenes();
-      setActiveSceneId(data.id);
+      setActiveSceneId(createdScId);
     } catch (e) {
-      console.error(e);
+      console.error("[Add Scene Failed]", e);
     }
   };
 
@@ -1139,15 +1160,26 @@ export default function Manuscript({
         if (title.trim()) {
           (async () => {
             try {
-              const res = await fetch(`/api/projects/${projectId}/scenes`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ chapterId, title: title.trim() }),
-              });
-              const data = await res.json();
-              if (!res.ok) throw new Error("Failed to create scene");
+              let createdScId = "";
+              try {
+                const res = await fetch(`/api/projects/${projectId}/scenes`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ chapterId, title: title.trim() }),
+                });
+                if (res.ok) {
+                  const data = await res.json();
+                  createdScId = data.id;
+                }
+              } catch (err) {}
+
+              if (!createdScId) {
+                const sc = await ManuscriptRepository.createScene(projectId, chapterId, title.trim());
+                createdScId = sc.id;
+              }
+
               await onRefreshScenes();
-              setActiveSceneId(data.id);
+              setActiveSceneId(createdScId);
             } catch (e) {
               console.error("[Add Scene to Chapter] Failed:", e);
             }
