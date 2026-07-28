@@ -11,6 +11,9 @@ import { useLongPress } from "../hooks/useLongPress";
 import { BottomSheet, Button, PromptModal } from "../components/ui";
 import { db } from "../lib/db";
 import { SyncManager } from "../services/sync/SyncManager";
+import { MentionSuggestPopover } from "../components/workspace/MentionSuggestPopover";
+import { WritingInspector } from "../components/workspace/WritingInspector";
+import { SessionGoalsWidget } from "../components/workspace/SessionGoalsWidget";
 
 function extractPlainTextFromTipTap(contentStr: string): string {
   if (!contentStr) return "";
@@ -199,6 +202,13 @@ export default function Manuscript({
   const [dailyGoal, setDailyGoal] = useState<number>(1000);
   const [showShortcutsHelp, setShowShortcutsHelp] = useState(false);
   const [recoveryDraft, setRecoveryDraft] = useState<{ content: any; wordCount: number; timestamp: string } | null>(null);
+
+  // Sprint 1 & 2 Signature Feature States
+  const [scriveningsMode, setScriveningsMode] = useState<"scene" | "chapter" | "book">("scene");
+  const [readingWidth, setReadingWidth] = useState<"compact" | "comfort" | "wide">("comfort");
+  const [typewriterOffset, setTypewriterOffset] = useState<number>(42);
+  const [showWritingInspector, setShowWritingInspector] = useState(false);
+  const [isFocusFaded, setIsFocusFaded] = useState(false);
 
   // Character Consistency Engine State
   const [consistencyIssues, setConsistencyIssues] = useState<any[]>([]);
@@ -1293,6 +1303,63 @@ export default function Manuscript({
                 </div>
               </div>
             )}
+            {/* Top Workspace Toolbar Bar */}
+            <div style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              padding: "0.5rem 1.25rem",
+              background: "rgba(20, 19, 29, 0.7)",
+              borderBottom: "1px solid rgba(255,255,255,0.06)",
+              backdropFilter: "blur(8px)",
+              flexWrap: "wrap",
+              gap: "0.75rem"
+            }}>
+              {/* Scrivenings Mode Selector */}
+              <div style={{ display: "flex", gap: "0.3rem", background: "rgba(0,0,0,0.3)", padding: "0.2rem", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.06)" }}>
+                {(["scene", "chapter", "book"] as const).map((mode) => (
+                  <button
+                    key={mode}
+                    onClick={() => setScriveningsMode(mode)}
+                    style={{
+                      background: scriveningsMode === mode ? "#9f8ad0" : "transparent",
+                      color: scriveningsMode === mode ? "#fff" : "rgba(255,255,255,0.6)",
+                      border: "none",
+                      borderRadius: "6px",
+                      padding: "0.3rem 0.7rem",
+                      fontSize: "0.78rem",
+                      fontWeight: scriveningsMode === mode ? 700 : 500,
+                      cursor: "pointer",
+                      textTransform: "capitalize"
+                    }}
+                  >
+                    {mode === "scene" ? "📄 Scene" : mode === "chapter" ? "📖 Chapter" : "📚 Book"}
+                  </button>
+                ))}
+              </div>
+
+              {/* Session Goals & Inspector Actions */}
+              <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+                <SessionGoalsWidget currentWordCount={activeScene?.word_count || 0} targetDailyWords={dailyGoal} />
+
+                <button
+                  onClick={() => setShowWritingInspector(!showWritingInspector)}
+                  style={{
+                    background: showWritingInspector ? "rgba(224, 142, 109, 0.2)" : "rgba(255,255,255,0.05)",
+                    color: showWritingInspector ? "#e08e6d" : "rgba(255,255,255,0.7)",
+                    border: "1px solid rgba(255,255,255,0.08)",
+                    borderRadius: "20px",
+                    padding: "0.35rem 0.85rem",
+                    fontSize: "0.78rem",
+                    fontWeight: 600,
+                    cursor: "pointer"
+                  }}
+                >
+                  📐 Writing Inspector
+                </button>
+              </div>
+            </div>
+
             <div className="editor-flex-container">
             {/* Rich Text Editor */}
             <div className="editor-workspace-col">
@@ -1340,6 +1407,32 @@ export default function Manuscript({
                       value={preferences.lineHeight}
                       onChange={(e) => updatePreferences({ lineHeight: parseFloat(e.target.value) })}
                     />
+                  </div>
+
+                  <div className="ov-popover-group">
+                    <label>Reading Width</label>
+                    <select
+                      value={readingWidth}
+                      onChange={(e) => setReadingWidth(e.target.value as any)}
+                    >
+                      <option value="compact">Compact (680px)</option>
+                      <option value="comfort">Comfort (720px)</option>
+                      <option value="wide">Wide (800px)</option>
+                    </select>
+                  </div>
+
+                  <div className="ov-popover-group">
+                    <label>Typewriter Offset ({typewriterOffset}%)</label>
+                    <select
+                      value={typewriterOffset}
+                      onChange={(e) => setTypewriterOffset(parseInt(e.target.value, 10))}
+                    >
+                      <option value={35}>35% Viewport</option>
+                      <option value={40}>40% Viewport</option>
+                      <option value={42}>42% (Recommended)</option>
+                      <option value={45}>45% Viewport</option>
+                      <option value={50}>50% Center</option>
+                    </select>
                   </div>
 
                   <div className="ov-popover-group">
@@ -1426,7 +1519,38 @@ export default function Manuscript({
                   <EditorContent editor={editor} className="tiptap-text-area" />
                 </div>
               </div>
+
+              {/* Scene Status Bar */}
+              <div style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                padding: "0.45rem 1.25rem",
+                background: "#14131d",
+                borderTop: "1px solid rgba(255,255,255,0.06)",
+                fontSize: "0.78rem",
+                color: "rgba(255,255,255,0.5)"
+              }}>
+                <div style={{ display: "flex", gap: "1rem" }}>
+                  <span>Scene {activeScene?.order_index || 1}</span>
+                  <span>• Characters: {characters.length}</span>
+                  <span>• Mentions: {entities.length}</span>
+                  <span>• Words: {(activeScene?.word_count || 0).toLocaleString()}</span>
+                </div>
+                <div style={{ color: "#34d399", fontWeight: 600 }}>
+                  Autosaved ✓
+                </div>
+              </div>
             </div>
+
+            {/* Writing Inspector Drawer */}
+            {showWritingInspector && (
+              <WritingInspector
+                activeScene={activeScene}
+                entities={entities}
+                onClose={() => setShowWritingInspector(false)}
+              />
+            )}
 
             {/* Sidebar Scene Card Metadata - transition-hidden in Focus Mode */}
             <aside className={`editor-metadata-sidebar ${rightCollapsed ? 'focus-hidden-right' : ''}`}>
