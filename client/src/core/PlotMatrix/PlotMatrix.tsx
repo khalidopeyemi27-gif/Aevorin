@@ -26,13 +26,15 @@ interface PlotMatrixProps {
   scenes: Scene[];
   entities: Entity[];
   onSelectScene?: (chapterId: string, sceneId: string) => void;
+  onClose?: () => void;
 }
 
 export default function PlotMatrix({
   chapters = [],
   scenes = [],
   entities = [],
-  onSelectScene
+  onSelectScene,
+  onClose
 }: PlotMatrixProps) {
   const [filterType, setFilterType] = useState<"all" | "character" | "location">("character");
 
@@ -68,8 +70,8 @@ export default function PlotMatrix({
           </p>
         </div>
 
-        {/* Filters */}
-        <div style={{ display: "flex", gap: "0.5rem" }}>
+        {/* Filters & Exit Button */}
+        <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
           {(["character", "location", "all"] as const).map((type) => (
             <button
               key={type}
@@ -89,6 +91,28 @@ export default function PlotMatrix({
               {type === "character" ? "👤 Characters" : type === "location" ? "🏰 Locations" : "🌐 All Entities"}
             </button>
           ))}
+
+          {onClose && (
+            <button
+              onClick={onClose}
+              style={{
+                background: "rgba(239, 68, 68, 0.15)",
+                color: "#f87171",
+                border: "1px solid rgba(239, 68, 68, 0.3)",
+                borderRadius: "6px",
+                padding: "0.4rem 0.85rem",
+                fontSize: "0.8rem",
+                fontWeight: 700,
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                gap: "0.3rem"
+              }}
+              title="Close Matrix Plot Board & Return to Manuscript"
+            >
+              ✖ Exit Matrix
+            </button>
+          )}
         </div>
       </div>
 

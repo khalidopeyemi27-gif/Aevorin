@@ -966,6 +966,7 @@ export default function Workspace({
                 chapters={chapters}
                 scenes={scenes}
                 entities={entities}
+                onClose={() => setActiveTab("manuscript")}
                 onSelectScene={(chapterId, sceneId) => {
                   setSelectedChapterId(chapterId);
                   if (sceneId) setSelectedSceneId(sceneId);
