@@ -215,6 +215,15 @@ export default function Manuscript({
     onConfirm: (val: string) => void;
   }>({ isOpen: false, title: "", onConfirm: () => {} });
 
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    subtitle: string;
+    confirmText: string;
+    danger?: boolean;
+    onConfirm: () => void;
+  }>({ isOpen: false, title: "", subtitle: "", confirmText: "Confirm", onConfirm: () => {} });
+
   // Search state
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<Scene[] | null>(null);
@@ -996,19 +1005,27 @@ export default function Manuscript({
   };
 
   const handleRestoreVersion = async (versionId: string) => {
-    if (!confirm("Are you sure you want to restore this scene to this version? Unsaved active draft changes will be lost.")) return;
-    try {
-      const res = await fetch(`/api/projects/${projectId}/history/restore`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ versionId }),
-      });
-      if (!res.ok) throw new Error("Restore checkpoint failed");
-      await onRefreshScenes();
-      alert("Checkpoint successfully restored!");
-    } catch (e) {
-      console.error(e);
-    }
+    setConfirmModal({
+      isOpen: true,
+      title: "Restore Version Checkpoint?",
+      subtitle: "Are you sure you want to restore this scene to this version? Unsaved active draft changes will be replaced.",
+      confirmText: "Restore Version",
+      danger: false,
+      onConfirm: async () => {
+        try {
+          const res = await fetch(`/api/projects/${projectId}/history/restore`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ versionId }),
+          });
+          if (!res.ok) throw new Error("Restore checkpoint failed");
+          await onRefreshScenes();
+          showToast("Checkpoint successfully restored!", "success");
+        } catch (e) {
+          console.error(e);
+        }
+      }
+    });
   };
 
   const handleCompareVersion = async (ver: VersionHistory) => {
@@ -1074,20 +1091,28 @@ export default function Manuscript({
     }
   };
 
-  const handleDeleteChapter = async (chapterId: string) => {
-    if (!confirm("Are you sure you want to delete this chapter? This detaches all scenes inside it.")) return;
-    try {
-      try {
-        await fetch(`/api/projects/${projectId}/chapters/${chapterId}`, { method: "DELETE" });
-      } catch (err) {}
-      
-      await db.chapters.delete(chapterId);
-      await onRefreshChapters();
-      await onRefreshScenes();
-      showToast("Chapter deleted", "info");
-    } catch (e) {
-      console.error(e);
-    }
+  const handleDeleteChapter = (chapterId: string) => {
+    setConfirmModal({
+      isOpen: true,
+      title: "Delete Chapter?",
+      subtitle: "Are you sure you want to delete this chapter? This detaches all scenes inside it.",
+      confirmText: "Delete Chapter",
+      danger: true,
+      onConfirm: async () => {
+        try {
+          try {
+            await fetch(`/api/projects/${projectId}/chapters/${chapterId}`, { method: "DELETE" });
+          } catch (err) {}
+          
+          await db.chapters.delete(chapterId);
+          await onRefreshChapters();
+          await onRefreshScenes();
+          showToast("Chapter deleted", "info");
+        } catch (e) {
+          console.error(e);
+        }
+      }
+    });
   };
 
   const handleAddScene = async (e: React.FormEvent) => {
@@ -1122,21 +1147,29 @@ export default function Manuscript({
     }
   };
 
-  const handleDeleteScene = async (sceneId: string) => {
-    if (!confirm("Are you sure you want to delete this scene?")) return;
-    try {
-      try {
-        await fetch(`/api/projects/${projectId}/scenes/${sceneId}`, { method: "DELETE" });
-      } catch (err) {}
+  const handleDeleteScene = (sceneId: string) => {
+    setConfirmModal({
+      isOpen: true,
+      title: "Delete Scene?",
+      subtitle: "Are you sure you want to delete this scene? This cannot be undone.",
+      confirmText: "Delete Scene",
+      danger: true,
+      onConfirm: async () => {
+        try {
+          try {
+            await fetch(`/api/projects/${projectId}/scenes/${sceneId}`, { method: "DELETE" });
+          } catch (err) {}
 
-      await db.scenes.delete(sceneId);
-      await db.drafts.delete(`draft_${sceneId}`);
-      if (activeSceneId === sceneId) setActiveSceneId(null);
-      await onRefreshScenes();
-      showToast("Scene deleted", "info");
-    } catch (e) {
-      console.error(e);
-    }
+          await db.scenes.delete(sceneId);
+          await db.drafts.delete(`draft_${sceneId}`);
+          if (activeSceneId === sceneId) setActiveSceneId(null);
+          await onRefreshScenes();
+          showToast("Scene deleted", "info");
+        } catch (e) {
+          console.error(e);
+        }
+      }
+    });
   };
 
   const handleCleanUpDuplicates = async () => {
@@ -2296,6 +2329,78 @@ export default function Manuscript({
         onConfirm={promptModal.onConfirm}
         onCancel={() => setPromptModal((prev) => ({ ...prev, isOpen: false }))}
       />
+
+      {confirmModal.isOpen && (
+        <div style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: "rgba(10, 9, 18, 0.75)",
+          backdropFilter: "blur(8px)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 99999
+        }}>
+          <div style={{
+            background: "#181726",
+            border: "1px solid rgba(255, 255, 255, 0.12)",
+            borderRadius: "14px",
+            padding: "1.75rem",
+            maxWidth: "420px",
+            width: "90%",
+            boxShadow: "0 20px 40px rgba(0,0,0,0.6)",
+            textAlign: "center"
+          }}>
+            <div style={{ fontSize: "2.2rem", marginBottom: "0.75rem" }}>
+              {confirmModal.danger ? "⚠️" : "❓"}
+            </div>
+            <h3 style={{ color: "#fff", margin: "0 0 0.5rem 0", fontSize: "1.15rem", fontWeight: 700 }}>
+              {confirmModal.title}
+            </h3>
+            <p style={{ color: "#94a3b8", fontSize: "0.88rem", marginBottom: "1.5rem", lineHeight: 1.5 }}>
+              {confirmModal.subtitle}
+            </p>
+            <div style={{ display: "flex", gap: "0.75rem", justifyContent: "center" }}>
+              <button
+                onClick={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+                style={{
+                  background: "rgba(255,255,255,0.08)",
+                  color: "#cbd5e1",
+                  border: "1px solid rgba(255,255,255,0.1)",
+                  padding: "0.6rem 1.25rem",
+                  borderRadius: "8px",
+                  fontSize: "0.85rem",
+                  fontWeight: 600,
+                  cursor: "pointer"
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  setConfirmModal(prev => ({ ...prev, isOpen: false }));
+                  confirmModal.onConfirm();
+                }}
+                style={{
+                  background: confirmModal.danger ? "#ef4444" : "#818cf8",
+                  color: "#fff",
+                  border: "none",
+                  padding: "0.6rem 1.25rem",
+                  borderRadius: "8px",
+                  fontSize: "0.85rem",
+                  fontWeight: 700,
+                  cursor: "pointer"
+                }}
+              >
+                {confirmModal.confirmText}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
