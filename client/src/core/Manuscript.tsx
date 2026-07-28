@@ -90,20 +90,37 @@ interface ManuscriptProps {
   onClearTriggerAction?: () => void;
 }
 
-function SceneNode({ sc, activeSceneId, setActiveSceneId, setContextMenuContext }: any) {
+function SceneNode({ sc, activeSceneId, setActiveSceneId, setContextMenuContext, onDeleteScene }: any) {
   const longPress = useLongPress(
     () => setContextMenuContext({ type: "scene", id: sc.id, title: sc.title }),
     () => setActiveSceneId(sc.id),
     { delay: 500 }
   );
   return (
-    <div className={`tree-scene-item ${activeSceneId === sc.id ? "active" : ""}`} {...longPress}>
-      <span>{sc.title}</span>
+    <div className={`tree-scene-item ${activeSceneId === sc.id ? "active" : ""}`} {...longPress} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{sc.title}</span>
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          onDeleteScene(sc.id);
+        }}
+        style={{
+          background: "none",
+          border: "none",
+          color: "rgba(255,255,255,0.4)",
+          fontSize: "0.75rem",
+          cursor: "pointer",
+          padding: "0.1rem 0.3rem"
+        }}
+        title="Delete Scene"
+      >
+        🗑️
+      </button>
     </div>
   );
 }
 
-function ChapterNode({ ch, children, renamingChapterId, renameTitle, setRenameTitle, handleRenameChapterSubmit, setRenamingChapterId, setContextMenuContext }: any) {
+function ChapterNode({ ch, children, renamingChapterId, renameTitle, setRenameTitle, handleRenameChapterSubmit, setRenamingChapterId, setContextMenuContext, onDeleteChapter, onAddSceneToChapter }: any) {
   const longPress = useLongPress(
     () => setContextMenuContext({ type: "chapter", id: ch.id, title: ch.title }),
     undefined,
@@ -112,7 +129,7 @@ function ChapterNode({ ch, children, renamingChapterId, renameTitle, setRenameTi
 
   return (
     <div className="tree-chapter-group">
-      <div className="tree-chapter-header" {...longPress}>
+      <div className="tree-chapter-header" {...longPress} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         {renamingChapterId === ch.id ? (
           <input
             type="text"
@@ -129,11 +146,28 @@ function ChapterNode({ ch, children, renamingChapterId, renameTitle, setRenameTi
               setRenamingChapterId(ch.id);
               setRenameTitle(ch.title);
             }}
-            title="Click to rename"
+            title="Click to rename chapter"
+            style={{ cursor: "pointer", flex: 1 }}
           >
             {ch.title}
           </strong>
         )}
+        <div style={{ display: "flex", gap: "0.2rem", alignItems: "center" }}>
+          <button
+            onClick={() => onAddSceneToChapter(ch.id)}
+            style={{ background: "none", border: "none", color: "#818cf8", fontSize: "0.85rem", cursor: "pointer", padding: "0.1rem 0.3rem" }}
+            title="Add Scene to this Chapter"
+          >
+            +
+          </button>
+          <button
+            onClick={() => onDeleteChapter(ch.id)}
+            style={{ background: "none", border: "none", color: "rgba(255,255,255,0.4)", fontSize: "0.75rem", cursor: "pointer", padding: "0.1rem 0.3rem" }}
+            title="Delete Chapter"
+          >
+            🗑️
+          </button>
+        </div>
       </div>
       <div className="tree-scenes-list">
         {children}
@@ -1043,12 +1077,14 @@ export default function Manuscript({
   const handleDeleteChapter = async (chapterId: string) => {
     if (!confirm("Are you sure you want to delete this chapter? This detaches all scenes inside it.")) return;
     try {
-      const res = await fetch(`/api/projects/${projectId}/chapters/${chapterId}`, {
-        method: "DELETE"
-      });
-      if (!res.ok) throw new Error("Failed to delete chapter");
+      try {
+        await fetch(`/api/projects/${projectId}/chapters/${chapterId}`, { method: "DELETE" });
+      } catch (err) {}
+      
+      await db.chapters.delete(chapterId);
       await onRefreshChapters();
       await onRefreshScenes();
+      showToast("Chapter deleted", "info");
     } catch (e) {
       console.error(e);
     }
@@ -1089,14 +1125,39 @@ export default function Manuscript({
   const handleDeleteScene = async (sceneId: string) => {
     if (!confirm("Are you sure you want to delete this scene?")) return;
     try {
-      const res = await fetch(`/api/projects/${projectId}/scenes/${sceneId}`, {
-        method: "DELETE"
-      });
-      if (!res.ok) throw new Error("Failed to delete scene");
+      try {
+        await fetch(`/api/projects/${projectId}/scenes/${sceneId}`, { method: "DELETE" });
+      } catch (err) {}
+
+      await db.scenes.delete(sceneId);
+      await db.drafts.delete(`draft_${sceneId}`);
       if (activeSceneId === sceneId) setActiveSceneId(null);
       await onRefreshScenes();
+      showToast("Scene deleted", "info");
     } catch (e) {
       console.error(e);
+    }
+  };
+
+  const handleCleanUpDuplicates = async () => {
+    try {
+      const safeChaps = Array.isArray(chapters) ? chapters : [];
+      const ch1s = safeChaps.filter(c => c.title && c.title.trim().toLowerCase().startsWith("chapter 1"));
+      
+      if (ch1s.length > 1) {
+        const extras = ch1s.slice(1);
+        for (const chap of extras) {
+          try { await fetch(`/api/projects/${projectId}/chapters/${chap.id}`, { method: "DELETE" }); } catch (err) {}
+          await db.chapters.delete(chap.id);
+        }
+        await onRefreshChapters();
+        await onRefreshScenes();
+        showToast(`Cleaned up ${extras.length} duplicate Chapter 1 entries!`, "success");
+      } else {
+        showToast("No duplicate Chapter 1 entries found.", "info");
+      }
+    } catch (e) {
+      console.error("[CleanUpDuplicates Error]", e);
     }
   };
 
@@ -1226,7 +1287,26 @@ export default function Manuscript({
             )}
           </form>
 
-          <h3>Manuscript Drafts</h3>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.5rem" }}>
+            <h3 style={{ margin: 0 }}>Manuscript Drafts</h3>
+            {(Array.isArray(chapters) ? chapters : []).length > 1 && (
+              <button
+                onClick={handleCleanUpDuplicates}
+                style={{
+                  background: "rgba(255, 255, 255, 0.06)",
+                  color: "#94a3b8",
+                  border: "1px solid rgba(255, 255, 255, 0.1)",
+                  borderRadius: "4px",
+                  fontSize: "0.72rem",
+                  padding: "0.2rem 0.45rem",
+                  cursor: "pointer"
+                }}
+                title="Clean up empty duplicate Chapter 1 entries"
+              >
+                🧹 Clean Duplicates
+              </button>
+            )}
+          </div>
           
           <form onSubmit={handleAddChapter} style={{ display: "flex", gap: "0.4rem", marginBottom: "1rem" }}>
             <input
@@ -1260,6 +1340,8 @@ export default function Manuscript({
                   handleRenameChapterSubmit={handleRenameChapterSubmit}
                   setRenamingChapterId={setRenamingChapterId}
                   setContextMenuContext={setContextMenuContext}
+                  onDeleteChapter={handleDeleteChapter}
+                  onAddSceneToChapter={handleAddSceneToChapter}
                 >
                   {(Array.isArray(chScenes) ? chScenes : []).map((sc) => (
                     <SceneNode
@@ -1268,6 +1350,7 @@ export default function Manuscript({
                       activeSceneId={activeSceneId}
                       setActiveSceneId={setActiveSceneId}
                       setContextMenuContext={setContextMenuContext}
+                      onDeleteScene={handleDeleteScene}
                     />
                   ))}
                 </ChapterNode>
@@ -1290,6 +1373,7 @@ export default function Manuscript({
                         activeSceneId={activeSceneId}
                         setActiveSceneId={setActiveSceneId}
                         setContextMenuContext={setContextMenuContext}
+                        onDeleteScene={handleDeleteScene}
                       />
                     ))}
                 </div>
