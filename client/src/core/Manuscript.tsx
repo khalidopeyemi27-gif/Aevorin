@@ -1814,6 +1814,46 @@ export default function Manuscript({
               {/* Editor Workspace Content */}
               <div className={`editor-textarea-scroll ${isTypewriter ? "typewriter-active" : ""}`} style={{ padding: "3rem 1.5rem 180px 1.5rem" }}>
                 <div style={{ maxWidth: readingWidth === "compact" ? 680 : readingWidth === "comfort" ? 750 : 850, margin: "0 auto" }}>
+
+                  {/* ✨ Genre Editor Prominent Banner */}
+                  <div
+                    onClick={() => { setShowGenreEditorModal(true); handleRunGenreEditor(); }}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      background: "linear-gradient(135deg, rgba(124, 58, 237, 0.12), rgba(159, 138, 208, 0.08))",
+                      border: "1px solid rgba(192, 132, 252, 0.2)",
+                      borderRadius: "10px",
+                      padding: "0.55rem 1rem",
+                      marginBottom: "1.5rem",
+                      cursor: "pointer",
+                      transition: "all 0.2s ease",
+                      gap: "0.75rem"
+                    }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.borderColor = "rgba(192,132,252,0.5)"; (e.currentTarget as HTMLDivElement).style.background = "linear-gradient(135deg, rgba(124,58,237,0.2), rgba(159,138,208,0.14))"; }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.borderColor = "rgba(192,132,252,0.2)"; (e.currentTarget as HTMLDivElement).style.background = "linear-gradient(135deg, rgba(124,58,237,0.12), rgba(159,138,208,0.08))"; }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+                      <span style={{ fontSize: "1rem" }}>✨</span>
+                      <div>
+                        <div style={{ fontSize: "0.78rem", fontWeight: 700, color: "#e9d5ff" }}>Genre Editor & Proofreader</div>
+                        <div style={{ fontSize: "0.68rem", color: "#94a3b8" }}>Checks grammar, Story Bible continuity & {genreFocus} tone · Select text to analyse a specific passage</div>
+                      </div>
+                    </div>
+                    <div style={{
+                      background: "linear-gradient(135deg, #9f8ad0, #7c3aed)",
+                      color: "#fff",
+                      borderRadius: "6px",
+                      padding: "0.3rem 0.75rem",
+                      fontSize: "0.72rem",
+                      fontWeight: 700,
+                      whiteSpace: "nowrap",
+                      flexShrink: 0
+                    }}>
+                      Analyse ›
+                    </div>
+                  </div>
                   {/* Chapter Header Banner & Breadcrumb */}
                   {(() => {
                     const safeChaps = Array.isArray(chapters) ? chapters : [];
