@@ -264,6 +264,111 @@ export default function Manuscript({
   const [quickEntityType, setQuickEntityType] = useState("character");
   const [quickEntitySummary, setQuickEntitySummary] = useState("");
 
+  // Chapter View Drag & Drop and Status Pill state/handlers
+  const [draggedSceneId, setDraggedSceneId] = useState<string | null>(null);
+
+  const handleReorderScene = async (sourceId: string, targetId: string) => {
+    if (!sourceId || !targetId || sourceId === targetId) return;
+    const safeScenes = Array.isArray(scenes) ? scenes : [];
+    const sourceScene = safeScenes.find(s => s.id === sourceId);
+    const targetScene = safeScenes.find(s => s.id === targetId);
+    if (!sourceScene || !targetScene || sourceScene.chapter_id !== targetScene.chapter_id) return;
+
+    const chapterScenes = safeScenes
+      .filter(s => s.chapter_id === sourceScene.chapter_id)
+      .sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0));
+
+    const fromIdx = chapterScenes.findIndex(s => s.id === sourceId);
+    const toIdx = chapterScenes.findIndex(s => s.id === targetId);
+    if (fromIdx === -1 || toIdx === -1) return;
+
+    const reordered = [...chapterScenes];
+    const [moved] = reordered.splice(fromIdx, 1);
+    reordered.splice(toIdx, 0, moved);
+
+    try {
+      await Promise.all(
+        reordered.map((sc, index) =>
+          fetch(apiUrl(`/api/projects/${projectId}/scenes/${sc.id}`), {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ orderIndex: index + 1 }),
+          })
+        )
+      );
+      showToast("Scene reordered", "info");
+      await onRefreshScenes();
+    } catch (e) {
+      console.error("[Reorder Error]", e);
+    } finally {
+      setDraggedSceneId(null);
+    }
+  };
+
+  const handleCycleSceneStatus = async (sceneId: string, currentStatus?: string) => {
+    const statuses = ["draft", "in_progress", "polished"];
+    const currIndex = statuses.indexOf(currentStatus || "draft");
+    const nextStatus = statuses[(currIndex + 1) % statuses.length];
+
+    if (activeScene && activeScene.id === sceneId) {
+      updateActiveScene({ status: nextStatus });
+    }
+    try {
+      await fetch(apiUrl(`/api/projects/${projectId}/scenes/${sceneId}`), {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: nextStatus }),
+      });
+      await onRefreshScenes();
+    } catch (e) {
+      console.error("[Status Cycle Error]", e);
+    }
+  };
+
+  const renderStatusBadge = (status?: string, onClick?: () => void) => {
+    const s = (status || "draft").toLowerCase();
+    let label = "🟡 Draft";
+    let bg = "rgba(234, 179, 8, 0.12)";
+    let border = "rgba(234, 179, 8, 0.35)";
+    let color = "#fde047";
+
+    if (s === "in_progress" || s === "revised") {
+      label = "🔵 In Progress";
+      bg = "rgba(59, 130, 246, 0.12)";
+      border = "rgba(59, 130, 246, 0.35)";
+      color = "#93c5fd";
+    } else if (s === "polished" || s === "final") {
+      label = "🟢 Polished";
+      bg = "rgba(34, 197, 94, 0.12)";
+      border = "rgba(34, 197, 94, 0.35)";
+      color = "#86efac";
+    }
+
+    return (
+      <span
+        onClick={(e) => { e.stopPropagation(); onClick && onClick(); }}
+        title="Click to cycle status: Draft → In Progress → Polished"
+        style={{
+          background: bg,
+          border: `1px solid ${border}`,
+          color,
+          borderRadius: "6px",
+          padding: "0.25rem 0.65rem",
+          fontSize: "0.72rem",
+          fontWeight: 700,
+          cursor: "pointer",
+          userSelect: "none",
+          transition: "all 0.15s ease",
+          display: "inline-flex",
+          alignItems: "center",
+          gap: "0.25rem"
+        }}
+      >
+        {label}
+      </span>
+    );
+  };
+
   // Genre-Aware AI Proofreader & Style Editor State
   const [showGenreEditorModal, setShowGenreEditorModal] = useState(false);
   const [genreFocus, setGenreFocus] = useState<string>("Dark Fantasy");
@@ -1886,9 +1991,10 @@ export default function Manuscript({
                         </div>
                       )}
 
-                      {/* Scene Cards — stitched together with live inline editing */}
+                      {/* Scene Cards — stitched together with live inline editing & drag-and-drop */}
                       {chapterScenes.map((scene, idx) => {
                         const isActive = scene.id === activeSceneId;
+                        const isDragging = draggedSceneId === scene.id;
 
                         let previewText = "";
                         try {
@@ -1907,56 +2013,105 @@ export default function Manuscript({
                         return (
                           <div
                             key={scene.id}
+                            draggable
+                            onDragStart={(e) => {
+                              e.dataTransfer.setData("text/plain", scene.id);
+                              setDraggedSceneId(scene.id);
+                            }}
+                            onDragOver={(e) => e.preventDefault()}
+                            onDrop={(e) => {
+                              e.preventDefault();
+                              const sourceId = e.dataTransfer.getData("text/plain") || draggedSceneId;
+                              if (sourceId) handleReorderScene(sourceId, scene.id);
+                            }}
                             style={{
-                              marginBottom: "3rem",
-                              padding: isActive ? "1.5rem" : "0.75rem 1rem",
-                              background: isActive ? "rgba(20, 19, 29, 0.7)" : "transparent",
-                              border: isActive ? "1px solid rgba(192, 132, 252, 0.3)" : "1px solid transparent",
+                              marginBottom: "2rem",
+                              padding: isActive ? "1.25rem 1.5rem" : "0.85rem 1.25rem",
+                              background: isActive
+                                ? "linear-gradient(180deg, rgba(24, 22, 37, 0.95), rgba(18, 16, 28, 0.95))"
+                                : "rgba(255, 255, 255, 0.015)",
+                              border: isActive
+                                ? "1px solid rgba(192, 132, 252, 0.4)"
+                                : isDragging
+                                ? "1.5px dashed rgba(192, 132, 252, 0.6)"
+                                : "1px solid rgba(255, 255, 255, 0.05)",
                               borderRadius: "14px",
-                              boxShadow: isActive ? "0 10px 30px rgba(0,0,0,0.3)" : "none",
-                              transition: "all 0.2s ease"
+                              boxShadow: isActive
+                                ? "0 10px 30px -5px rgba(124, 58, 237, 0.2)"
+                                : "none",
+                              opacity: isDragging ? 0.4 : 1,
+                              transition: "all 0.2s cubic-bezier(0.16, 1, 0.3, 1)"
                             }}
                           >
-                            {/* Scene separator */}
-                            {idx > 0 && !isActive && (
-                              <div style={{ display: "flex", alignItems: "center", gap: "1rem", marginBottom: "1.5rem" }}>
-                                <div style={{ flex: 1, height: "1px", background: "rgba(255,255,255,0.04)" }} />
-                                <span style={{ fontSize: "0.65rem", color: "rgba(255,255,255,0.15)", fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase" }}>Scene {idx + 1}</span>
-                                <div style={{ flex: 1, height: "1px", background: "rgba(255,255,255,0.04)" }} />
-                              </div>
-                            )}
-
-                            {/* Scene title */}
-                            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.75rem" }}>
-                              {isActive ? (
-                                <input
-                                  type="text"
-                                  value={activeScene?.title || scene.title}
-                                  onChange={(e) => updateActiveScene({ title: e.target.value })}
+                            {/* Scene header bar */}
+                            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.75rem", gap: "0.75rem" }}>
+                              <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flex: 1 }}>
+                                {/* Drag Handle ::: */}
+                                <span
+                                  title="Drag to reorder scene"
                                   style={{
-                                    background: "none", border: "none", color: "#fff",
-                                    fontFamily: preferences.editorFont || "'Source Serif 4', serif",
-                                    fontSize: "1.4rem", fontWeight: "bold", width: "70%", outline: "none"
+                                    cursor: "grab",
+                                    color: "rgba(255,255,255,0.25)",
+                                    fontSize: "1.1rem",
+                                    lineHeight: 1,
+                                    userSelect: "none",
+                                    padding: "0.2rem 0.3rem",
+                                    borderRadius: "4px",
+                                    transition: "color 0.15s ease"
                                   }}
-                                  placeholder="Scene Title"
-                                />
-                              ) : (
-                                <h2
-                                  onClick={() => setActiveSceneId(scene.id)}
-                                  style={{
-                                    margin: 0, fontSize: "1.4rem", fontWeight: 700, color: "#cbd5e1",
-                                    fontFamily: preferences.editorFont || "'Source Serif 4', serif", cursor: "pointer"
-                                  }}
+                                  onMouseEnter={e => (e.currentTarget.style.color = "#c084fc")}
+                                  onMouseLeave={e => (e.currentTarget.style.color = "rgba(255,255,255,0.25)")}
                                 >
-                                  {scene.title || "Untitled Scene"}
-                                </h2>
-                              )}
+                                  ⋮⋮
+                                </span>
 
-                              <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
-                                <span style={{ fontSize: "0.72rem", color: "#475569" }}>{(scene.word_count || 0).toLocaleString()} words</span>
+                                {/* Title Input or Clickable Header */}
+                                {isActive ? (
+                                  <input
+                                    type="text"
+                                    value={activeScene?.title || scene.title}
+                                    onChange={(e) => updateActiveScene({ title: e.target.value })}
+                                    onKeyDown={(e) => {
+                                      if (e.key === "Enter") {
+                                        e.preventDefault();
+                                        editor?.chain().focus().run();
+                                      }
+                                    }}
+                                    style={{
+                                      background: "none", border: "none", color: "#fff",
+                                      fontFamily: preferences.editorFont || "'Source Serif 4', serif",
+                                      fontSize: "1.35rem", fontWeight: "bold", width: "100%", outline: "none"
+                                    }}
+                                    placeholder="Scene Title"
+                                  />
+                                ) : (
+                                  <h2
+                                    onClick={() => setActiveSceneId(scene.id)}
+                                    style={{
+                                      margin: 0, fontSize: "1.35rem", fontWeight: 700, color: "#e2e8f0",
+                                      fontFamily: preferences.editorFont || "'Source Serif 4', serif", cursor: "pointer"
+                                    }}
+                                  >
+                                    {scene.title || "Untitled Scene"}
+                                  </h2>
+                                )}
+                              </div>
+
+                              <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexShrink: 0 }}>
+                                {/* Interactive Status Badge Chip */}
+                                {renderStatusBadge(
+                                  isActive ? activeScene?.status || scene.status : scene.status,
+                                  () => handleCycleSceneStatus(scene.id, isActive ? activeScene?.status || scene.status : scene.status)
+                                )}
+
+                                {/* Word count */}
+                                <span style={{ fontSize: "0.72rem", color: "#64748b", fontWeight: 500 }}>
+                                  {(isActive ? activeScene?.word_count ?? scene.word_count ?? 0 : scene.word_count || 0).toLocaleString()} words
+                                </span>
+
                                 {isActive ? (
                                   <span style={{
-                                    background: "rgba(192, 132, 252, 0.2)", color: "#c084fc",
+                                    background: "rgba(192, 132, 252, 0.18)", color: "#c084fc",
                                     borderRadius: "6px", padding: "0.2rem 0.6rem", fontSize: "0.7rem", fontWeight: 700
                                   }}>
                                     ✍️ Active Editor
@@ -1978,7 +2133,7 @@ export default function Manuscript({
 
                             {/* Active Scene gets Live TipTap Editor / Inactive Scene gets Clickable Preview */}
                             {isActive ? (
-                              <div onClick={() => editor?.chain().focus().run()} style={{ minHeight: "250px", cursor: "text", paddingTop: "0.5rem" }}>
+                              <div onClick={() => editor?.chain().focus().run()} style={{ minHeight: "220px", cursor: "text", paddingTop: "0.5rem" }}>
                                 <EditorContent editor={editor} className="tiptap-text-area" />
                               </div>
                             ) : (
@@ -1989,7 +2144,7 @@ export default function Manuscript({
                                   fontFamily: preferences.editorFont || "'Source Serif 4', serif",
                                   fontSize: "var(--editor-font-size, 18px)",
                                   lineHeight: "var(--editor-line-height, 1.75)",
-                                  color: "rgba(255,255,255,0.7)",
+                                  color: "rgba(255,255,255,0.72)",
                                   cursor: "pointer",
                                   whiteSpace: "pre-wrap",
                                   wordBreak: "break-word",
@@ -2019,32 +2174,45 @@ export default function Manuscript({
                         );
                       })}
 
-                      {/* Add scene to chapter CTA */}
+                      {/* Add scene to chapter CTA — Polish #4 */}
                       {chapterScenes.length > 0 && (
-                        <div style={{ borderTop: "1px solid rgba(255,255,255,0.05)", paddingTop: "2rem", display: "flex", justifyContent: "center" }}>
+                        <div style={{ borderTop: "1px solid rgba(255,255,255,0.06)", paddingTop: "2.5rem", display: "flex", justifyContent: "center" }}>
                           <button
                             onClick={() => {
-                              const ch = Array.isArray(chapters) ? chapters.find(c => c.id === activeScene.chapter_id) : null;
+                              const ch = Array.isArray(chapters) ? chapters.find(c => c.id === (activeScene?.chapter_id || activeChapter?.id)) : null;
                               if (ch) {
                                 const evt = new CustomEvent("aevorin:addSceneToChapter", { detail: { chapterId: ch.id } });
                                 window.dispatchEvent(evt);
                               }
                             }}
                             style={{
-                              background: "rgba(124,58,237,0.12)",
-                              color: "#c084fc",
-                              border: "1.5px dashed rgba(192,132,252,0.3)",
+                              background: "linear-gradient(135deg, rgba(124, 58, 237, 0.18), rgba(159, 138, 208, 0.1))",
+                              color: "#e9d5ff",
+                              border: "1px solid rgba(192, 132, 252, 0.4)",
                               borderRadius: "10px",
-                              padding: "0.7rem 1.5rem",
-                              fontSize: "0.82rem",
+                              padding: "0.75rem 1.75rem",
+                              fontSize: "0.85rem",
                               fontWeight: 700,
                               cursor: "pointer",
                               display: "flex",
                               alignItems: "center",
-                              gap: "0.5rem"
+                              gap: "0.5rem",
+                              boxShadow: "0 4px 15px rgba(124, 58, 237, 0.2)",
+                              outline: "none",
+                              transition: "all 0.2s cubic-bezier(0.16, 1, 0.3, 1)"
+                            }}
+                            onMouseEnter={e => {
+                              (e.currentTarget as HTMLButtonElement).style.transform = "translateY(-2px)";
+                              (e.currentTarget as HTMLButtonElement).style.boxShadow = "0 6px 20px rgba(124, 58, 237, 0.35)";
+                              (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(192, 132, 252, 0.7)";
+                            }}
+                            onMouseLeave={e => {
+                              (e.currentTarget as HTMLButtonElement).style.transform = "translateY(0)";
+                              (e.currentTarget as HTMLButtonElement).style.boxShadow = "0 4px 15px rgba(124, 58, 237, 0.2)";
+                              (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(192, 132, 252, 0.4)";
                             }}
                           >
-                            + Add New Scene to {activeChapter?.title || "Chapter"}
+                            ✨ + Add New Scene to {activeChapter?.title || "Chapter"}
                           </button>
                         </div>
                       )}
