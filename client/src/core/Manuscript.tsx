@@ -16,6 +16,8 @@ import { EntityRepository } from "../database/repositories/entityRepository";
 import { MentionSuggestPopover } from "../components/workspace/MentionSuggestPopover";
 import { WritingInspector } from "../components/workspace/WritingInspector";
 import { SessionGoalsWidget } from "../components/workspace/SessionGoalsWidget";
+import { GenreEditorEngine } from "../services/ai/GenreEditorEngine";
+import type { ProofreadResult } from "../services/ai/GenreEditorEngine";
 
 function extractPlainTextFromTipTap(contentStr: string): string {
   if (!contentStr) return "";
@@ -261,6 +263,53 @@ export default function Manuscript({
   const [quickEntityName, setQuickEntityName] = useState("");
   const [quickEntityType, setQuickEntityType] = useState("character");
   const [quickEntitySummary, setQuickEntitySummary] = useState("");
+
+  // Genre-Aware AI Proofreader & Style Editor State
+  const [showGenreEditorModal, setShowGenreEditorModal] = useState(false);
+  const [genreFocus, setGenreFocus] = useState<string>("Dark Fantasy");
+  const [proofreadResult, setProofreadResult] = useState<ProofreadResult | null>(null);
+  const [isAnalyzingGenre, setIsAnalyzingGenre] = useState(false);
+
+  const handleRunGenreEditor = async (overrideGenre?: string) => {
+    if (!editor) return;
+    setIsAnalyzingGenre(true);
+    try {
+      let targetText = "";
+      const selection = editor.state.selection;
+      if (selection && !selection.empty) {
+        targetText = editor.state.doc.textBetween(selection.from, selection.to, "\n");
+      } else {
+        targetText = editor.getText();
+      }
+
+      const activeGenre = overrideGenre || genreFocus;
+      const res = await GenreEditorEngine.proofreadAndEdit(projectId, targetText, activeGenre);
+      setProofreadResult(res);
+    } catch (e) {
+      console.error("[GenreEditor Error]", e);
+      showToast("Failed to run Genre Editor", "error");
+    } finally {
+      setIsAnalyzingGenre(false);
+    }
+  };
+
+  const handleApplyGenreCorrections = () => {
+    if (!editor || !proofreadResult) return;
+    const selection = editor.state.selection;
+    if (selection && !selection.empty) {
+      editor.chain().focus().insertContentAt(
+        { from: selection.from, to: selection.to },
+        proofreadResult.correctedText
+      ).run();
+    } else {
+      editor.chain().focus().setContent(
+        `<p>${proofreadResult.correctedText.replace(/\n/g, "</p><p>")}</p>`
+      ).run();
+    }
+    showToast(`Applied ${proofreadResult.changesCount} corrections & genre improvements!`, "success");
+    setShowGenreEditorModal(false);
+    setProofreadResult(null);
+  };
 
   // Global Ctrl+K / Cmd+K Command Palette Trigger
   useEffect(() => {
@@ -1605,6 +1654,25 @@ export default function Manuscript({
                 >
                   📐 Writing Inspector
                 </button>
+
+                <button
+                  onClick={() => {
+                    setShowGenreEditorModal(true);
+                    handleRunGenreEditor();
+                  }}
+                  style={{
+                    background: "linear-gradient(135deg, rgba(159, 138, 208, 0.25), rgba(124, 58, 237, 0.25))",
+                    color: "#c084fc",
+                    border: "1px solid rgba(192, 132, 252, 0.3)",
+                    borderRadius: "20px",
+                    padding: "0.35rem 0.85rem",
+                    fontSize: "0.78rem",
+                    fontWeight: 700,
+                    cursor: "pointer"
+                  }}
+                >
+                  ✨ Genre Editor & Proofreader
+                </button>
               </div>
             </div>
 
@@ -2840,6 +2908,324 @@ export default function Manuscript({
               </button>
             </div>
           </form>
+        </div>
+      )}
+
+      {/* ✨ Genre-Aware Proofreader & Style Editor Modal */}
+      {showGenreEditorModal && (
+        <div style={{
+          position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
+          background: "rgba(8, 7, 16, 0.82)",
+          backdropFilter: "blur(14px)",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          zIndex: 99999, padding: "1rem"
+        }} onClick={() => { setShowGenreEditorModal(false); setProofreadResult(null); }}>
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: "#141322",
+              border: "1px solid rgba(192, 132, 252, 0.25)",
+              borderRadius: "18px",
+              maxWidth: "680px",
+              width: "100%",
+              maxHeight: "88vh",
+              display: "flex",
+              flexDirection: "column",
+              boxShadow: "0 30px 70px rgba(0,0,0,0.85)",
+              overflow: "hidden"
+            }}
+          >
+            {/* Header */}
+            <div style={{
+              padding: "1.25rem 1.5rem",
+              borderBottom: "1px solid rgba(255,255,255,0.07)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              flexShrink: 0
+            }}>
+              <div>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+                  <span style={{ fontSize: "1.3rem" }}>✨</span>
+                  <span style={{ fontWeight: 800, fontSize: "1.1rem", color: "#fff" }}>Genre Editor & Proofreader</span>
+                </div>
+                <p style={{ margin: "0.25rem 0 0 0", fontSize: "0.78rem", color: "#94a3b8" }}>
+                  Corrects grammar, typos, Story Bible continuity, and genre-specific tone.
+                </p>
+              </div>
+              <button
+                onClick={() => { setShowGenreEditorModal(false); setProofreadResult(null); }}
+                style={{ background: "none", border: "none", color: "#64748b", fontSize: "1.3rem", cursor: "pointer", padding: "0.25rem 0.5rem" }}
+              >×</button>
+            </div>
+
+            {/* Genre Selector */}
+            <div style={{
+              padding: "1rem 1.5rem",
+              borderBottom: "1px solid rgba(255,255,255,0.06)",
+              display: "flex",
+              alignItems: "center",
+              gap: "0.85rem",
+              flexWrap: "wrap",
+              flexShrink: 0,
+              background: "rgba(255,255,255,0.02)"
+            }}>
+              <span style={{ fontSize: "0.78rem", color: "#94a3b8", fontWeight: 600, whiteSpace: "nowrap" }}>Novel Genre:</span>
+              <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", flex: 1 }}>
+                {[
+                  { id: "Dark Fantasy", icon: "🏰" },
+                  { id: "Light Novel", icon: "📚" },
+                  { id: "Sci-Fi", icon: "🚀" },
+                  { id: "Cyberpunk", icon: "🌐" },
+                  { id: "Horror", icon: "💀" },
+                  { id: "Romance", icon: "💜" },
+                  { id: "General Fiction", icon: "📖" },
+                ].map((g) => (
+                  <button
+                    key={g.id}
+                    onClick={() => { setGenreFocus(g.id); handleRunGenreEditor(g.id); }}
+                    style={{
+                      background: genreFocus === g.id ? "rgba(192, 132, 252, 0.22)" : "rgba(255,255,255,0.05)",
+                      border: genreFocus === g.id ? "1.5px solid #c084fc" : "1px solid rgba(255,255,255,0.1)",
+                      borderRadius: "20px",
+                      padding: "0.3rem 0.8rem",
+                      color: genreFocus === g.id ? "#e9d5ff" : "#94a3b8",
+                      fontSize: "0.75rem",
+                      fontWeight: 600,
+                      cursor: "pointer",
+                      transition: "all 0.15s ease"
+                    }}
+                  >
+                    {g.icon} {g.id}
+                  </button>
+                ))}
+              </div>
+              <button
+                onClick={() => handleRunGenreEditor()}
+                disabled={isAnalyzingGenre}
+                style={{
+                  background: isAnalyzingGenre ? "rgba(192,132,252,0.15)" : "linear-gradient(135deg, #9f8ad0, #7c3aed)",
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: "8px",
+                  padding: "0.45rem 1rem",
+                  fontSize: "0.8rem",
+                  fontWeight: 700,
+                  cursor: isAnalyzingGenre ? "default" : "pointer",
+                  whiteSpace: "nowrap"
+                }}
+              >
+                {isAnalyzingGenre ? "⏳ Analyzing..." : "🔄 Re-analyze"}
+              </button>
+            </div>
+
+            {/* Results Body */}
+            <div style={{ flex: 1, overflowY: "auto", padding: "1.25rem 1.5rem" }}>
+
+              {isAnalyzingGenre && (
+                <div style={{ textAlign: "center", padding: "3rem 0", color: "#94a3b8" }}>
+                  <div style={{ fontSize: "2rem", marginBottom: "0.75rem", animation: "spin 1.5s linear infinite" }}>⏳</div>
+                  <div style={{ fontWeight: 600 }}>Analyzing your manuscript against {genreFocus} standards...</div>
+                  <div style={{ fontSize: "0.8rem", marginTop: "0.4rem", color: "#64748b" }}>
+                    Checking grammar, Story Bible continuity, and genre tone...
+                  </div>
+                </div>
+              )}
+
+              {!isAnalyzingGenre && proofreadResult && proofreadResult.changesCount === 0 && (
+                <div style={{ textAlign: "center", padding: "3rem 0" }}>
+                  <div style={{ fontSize: "2.5rem", marginBottom: "0.75rem" }}>✅</div>
+                  <div style={{ fontWeight: 700, fontSize: "1.05rem", color: "#4ade80" }}>Your manuscript looks great!</div>
+                  <div style={{ fontSize: "0.82rem", color: "#94a3b8", marginTop: "0.4rem" }}>
+                    No grammar issues, typos, or genre tone inconsistencies found for <strong style={{ color: "#c084fc" }}>{genreFocus}</strong>.
+                  </div>
+                </div>
+              )}
+
+              {!isAnalyzingGenre && proofreadResult && proofreadResult.changesCount > 0 && (
+                <div>
+                  {/* Summary Banner */}
+                  <div style={{
+                    background: "rgba(192, 132, 252, 0.1)",
+                    border: "1px solid rgba(192, 132, 252, 0.2)",
+                    borderRadius: "10px",
+                    padding: "0.85rem 1rem",
+                    marginBottom: "1.25rem",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "0.75rem"
+                  }}>
+                    <span style={{ fontSize: "1.2rem" }}>📝</span>
+                    <div>
+                      <div style={{ fontWeight: 700, fontSize: "0.92rem", color: "#e9d5ff" }}>
+                        {proofreadResult.changesCount} suggestion{proofreadResult.changesCount !== 1 ? "s" : ""} found
+                      </div>
+                      <div style={{ fontSize: "0.75rem", color: "#94a3b8" }}>
+                        Genre: <strong style={{ color: "#c084fc" }}>{proofreadResult.genre}</strong> · Review each change below before applying.
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Explanation List */}
+                  <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+                    {proofreadResult.explanations.map((ex, idx) => {
+                      const tagColors: Record<string, { bg: string; color: string; label: string }> = {
+                        grammar:     { bg: "rgba(59,130,246,0.15)",  color: "#93c5fd", label: "Grammar" },
+                        tone:        { bg: "rgba(192,132,252,0.15)", color: "#e9d5ff", label: "Genre Tone" },
+                        continuity:  { bg: "rgba(251,191,36,0.15)",  color: "#fcd34d", label: "Story Bible" },
+                        dialogue:    { bg: "rgba(52,211,153,0.15)",  color: "#6ee7b7", label: "Dialogue" },
+                      };
+                      const tag = tagColors[ex.type] || tagColors.grammar;
+
+                      return (
+                        <div
+                          key={idx}
+                          style={{
+                            background: "rgba(255,255,255,0.03)",
+                            border: "1px solid rgba(255,255,255,0.07)",
+                            borderRadius: "10px",
+                            padding: "0.9rem 1rem",
+                          }}
+                        >
+                          <div style={{ display: "flex", alignItems: "flex-start", gap: "0.65rem", marginBottom: ex.before ? "0.65rem" : 0 }}>
+                            <span style={{
+                              background: tag.bg,
+                              color: tag.color,
+                              borderRadius: "6px",
+                              padding: "0.15rem 0.55rem",
+                              fontSize: "0.68rem",
+                              fontWeight: 700,
+                              whiteSpace: "nowrap",
+                              flexShrink: 0,
+                              marginTop: "1px"
+                            }}>
+                              {tag.label}
+                            </span>
+                            <span style={{ fontSize: "0.83rem", color: "#cbd5e1", lineHeight: 1.5 }}>
+                              {ex.message}
+                            </span>
+                          </div>
+
+                          {ex.before && ex.after && (
+                            <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", marginTop: "0.5rem" }}>
+                              <div style={{
+                                background: "rgba(239,68,68,0.12)",
+                                border: "1px solid rgba(239,68,68,0.2)",
+                                borderRadius: "6px",
+                                padding: "0.3rem 0.65rem",
+                                fontSize: "0.8rem",
+                                color: "#fca5a5",
+                                fontFamily: "monospace",
+                                textDecoration: "line-through",
+                                opacity: 0.85
+                              }}>
+                                {ex.before}
+                              </div>
+                              <div style={{ color: "#64748b", display: "flex", alignItems: "center", fontSize: "0.9rem" }}>→</div>
+                              <div style={{
+                                background: "rgba(74,222,128,0.12)",
+                                border: "1px solid rgba(74,222,128,0.2)",
+                                borderRadius: "6px",
+                                padding: "0.3rem 0.65rem",
+                                fontSize: "0.8rem",
+                                color: "#86efac",
+                                fontFamily: "monospace"
+                              }}>
+                                {ex.after}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Before / After Preview */}
+                  {proofreadResult.correctedText !== proofreadResult.originalText && (
+                    <div style={{ marginTop: "1.5rem" }}>
+                      <div style={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "0.6rem" }}>
+                        Full Corrected Preview
+                      </div>
+                      <div style={{
+                        background: "rgba(74,222,128,0.06)",
+                        border: "1px solid rgba(74,222,128,0.15)",
+                        borderRadius: "10px",
+                        padding: "1rem",
+                        fontSize: "0.83rem",
+                        color: "#d1fae5",
+                        lineHeight: 1.7,
+                        whiteSpace: "pre-wrap",
+                        maxHeight: "200px",
+                        overflowY: "auto"
+                      }}>
+                        {proofreadResult.correctedText}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {!isAnalyzingGenre && !proofreadResult && (
+                <div style={{ textAlign: "center", padding: "3rem 0", color: "#64748b" }}>
+                  <div style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>🔍</div>
+                  <div>Select a genre above and click <strong>Re-analyze</strong> to begin.</div>
+                </div>
+              )}
+            </div>
+
+            {/* Footer Actions */}
+            <div style={{
+              padding: "1rem 1.5rem",
+              borderTop: "1px solid rgba(255,255,255,0.07)",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              flexShrink: 0,
+              background: "rgba(255,255,255,0.01)"
+            }}>
+              <span style={{ fontSize: "0.75rem", color: "#475569" }}>
+                {proofreadResult
+                  ? `${proofreadResult.changesCount} correction${proofreadResult.changesCount !== 1 ? "s" : ""} · ${proofreadResult.genre}`
+                  : "No analysis yet"}
+              </span>
+              <div style={{ display: "flex", gap: "0.75rem" }}>
+                <button
+                  onClick={() => { setShowGenreEditorModal(false); setProofreadResult(null); }}
+                  style={{
+                    background: "rgba(255,255,255,0.06)",
+                    color: "#94a3b8",
+                    border: "1px solid rgba(255,255,255,0.1)",
+                    borderRadius: "8px",
+                    padding: "0.55rem 1.1rem",
+                    fontSize: "0.85rem",
+                    cursor: "pointer",
+                    fontWeight: 600
+                  }}
+                >
+                  Discard
+                </button>
+                <button
+                  onClick={handleApplyGenreCorrections}
+                  disabled={!proofreadResult || proofreadResult.changesCount === 0 || isAnalyzingGenre}
+                  style={{
+                    background: (!proofreadResult || proofreadResult.changesCount === 0)
+                      ? "rgba(124,58,237,0.3)"
+                      : "linear-gradient(135deg, #9f8ad0, #7c3aed)",
+                    color: "#fff",
+                    border: "none",
+                    borderRadius: "8px",
+                    padding: "0.55rem 1.4rem",
+                    fontSize: "0.85rem",
+                    fontWeight: 700,
+                    cursor: (!proofreadResult || proofreadResult.changesCount === 0) ? "default" : "pointer",
+                    boxShadow: (!proofreadResult || proofreadResult.changesCount === 0) ? "none" : "0 4px 14px rgba(124,58,237,0.4)"
+                  }}
+                >
+                  ✅ Apply {proofreadResult?.changesCount ? `${proofreadResult.changesCount} Correction${proofreadResult.changesCount !== 1 ? "s" : ""}` : "Corrections"}
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>
