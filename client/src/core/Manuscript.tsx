@@ -1813,7 +1813,10 @@ export default function Manuscript({
                 </div>
               )}
 
-              {/* Editor Workspace Content */}
+              {/* ═══════════════════════════════════════════════════
+                  SCENE MODE — single scene TipTap editor
+              ═══════════════════════════════════════════════════ */}
+              {scriveningsMode === "scene" && (
               <div className={`editor-textarea-scroll ${isTypewriter ? "typewriter-active" : ""}`} style={{ padding: "3rem 1.5rem 180px 1.5rem" }}>
                 <div style={{ maxWidth: readingWidth === "compact" ? 680 : readingWidth === "comfort" ? 750 : 850, margin: "0 auto" }}>
 
@@ -1821,17 +1824,10 @@ export default function Manuscript({
                   <div
                     onClick={() => { setShowGenreEditorModal(true); handleRunGenreEditor(); }}
                     style={{
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      background: "linear-gradient(135deg, rgba(124, 58, 237, 0.12), rgba(159, 138, 208, 0.08))",
-                      border: "1px solid rgba(192, 132, 252, 0.2)",
-                      borderRadius: "10px",
-                      padding: "0.55rem 1rem",
-                      marginBottom: "1.5rem",
-                      cursor: "pointer",
-                      transition: "all 0.2s ease",
-                      gap: "0.75rem"
+                      display: "flex", alignItems: "center", justifyContent: "space-between",
+                      background: "linear-gradient(135deg, rgba(124,58,237,0.12), rgba(159,138,208,0.08))",
+                      border: "1px solid rgba(192,132,252,0.2)", borderRadius: "10px",
+                      padding: "0.55rem 1rem", marginBottom: "1.5rem", cursor: "pointer", transition: "all 0.2s ease", gap: "0.75rem"
                     }}
                     onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.borderColor = "rgba(192,132,252,0.5)"; (e.currentTarget as HTMLDivElement).style.background = "linear-gradient(135deg, rgba(124,58,237,0.2), rgba(159,138,208,0.14))"; }}
                     onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.borderColor = "rgba(192,132,252,0.2)"; (e.currentTarget as HTMLDivElement).style.background = "linear-gradient(135deg, rgba(124,58,237,0.12), rgba(159,138,208,0.08))"; }}
@@ -1843,38 +1839,25 @@ export default function Manuscript({
                         <div style={{ fontSize: "0.68rem", color: "#94a3b8" }}>Checks grammar, Story Bible continuity & {genreFocus} tone · Select text to analyse a specific passage</div>
                       </div>
                     </div>
-                    <div style={{
-                      background: "linear-gradient(135deg, #9f8ad0, #7c3aed)",
-                      color: "#fff",
-                      borderRadius: "6px",
-                      padding: "0.3rem 0.75rem",
-                      fontSize: "0.72rem",
-                      fontWeight: 700,
-                      whiteSpace: "nowrap",
-                      flexShrink: 0
-                    }}>
+                    <div style={{ background: "linear-gradient(135deg, #9f8ad0, #7c3aed)", color: "#fff", borderRadius: "6px", padding: "0.3rem 0.75rem", fontSize: "0.72rem", fontWeight: 700, whiteSpace: "nowrap", flexShrink: 0 }}>
                       Analyse ›
                     </div>
                   </div>
-                  {/* Chapter Header Banner & Breadcrumb */}
+
+                  {/* Chapter breadcrumb */}
                   {(() => {
                     const safeChaps = Array.isArray(chapters) ? chapters : [];
                     const activeChapter = safeChaps.find(c => c.id === activeScene.chapter_id);
-                    
                     return (
-                      <div style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "0.5rem",
-                        marginBottom: "0.85rem",
-                        padding: 0,
-                        background: "transparent",
-                        border: "none"
-                      }}>
-                        <span style={{ color: "#9f8ad0", fontSize: "0.82rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", opacity: 0.9 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.85rem" }}>
+                        <span
+                          onClick={() => setScriveningsMode("chapter")}
+                          title="View full chapter"
+                          style={{ color: "#9f8ad0", fontSize: "0.82rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", opacity: 0.9, cursor: "pointer" }}
+                        >
                           📖 {activeChapter ? activeChapter.title : "UNCATEGORIZED CHAPTER"}
                         </span>
-                        <span style={{ color: "rgba(255,255,255,0.3)", fontSize: "0.75rem" }}>•</span>
+                        <span style={{ color: "rgba(255,255,255,0.3)", fontSize: "0.75rem" }}>›</span>
                         <span style={{ color: "rgba(255,255,255,0.5)", fontSize: "0.8rem", fontWeight: 500 }}>Scene</span>
                       </div>
                     );
@@ -1884,29 +1867,297 @@ export default function Manuscript({
                     type="text"
                     value={activeScene.title}
                     onChange={(e) => updateActiveScene({ title: e.target.value })}
-                    style={{
-                      background: "none",
-                      border: "none",
-                      color: "#fff",
-                      fontFamily: preferences.editorFont || "'Source Serif 4', 'Georgia', serif",
-                      fontSize: "2.2rem",
-                      fontWeight: "bold",
-                      width: "100%",
-                      outline: "none",
-                      marginBottom: "2rem",
-                      padding: 0
-                    }}
+                    style={{ background: "none", border: "none", color: "#fff", fontFamily: preferences.editorFont || "'Source Serif 4', 'Georgia', serif", fontSize: "2.2rem", fontWeight: "bold", width: "100%", outline: "none", marginBottom: "2rem", padding: 0 }}
                     placeholder="Untitled Scene"
                   />
-                  {/* Clickable area: clicking below text focuses the editor */}
-                  <div
-                    onClick={() => editor?.chain().focus().run()}
-                    style={{ minHeight: "60vh", cursor: "text" }}
-                  >
+                  <div onClick={() => editor?.chain().focus().run()} style={{ minHeight: "60vh", cursor: "text" }}>
                     <EditorContent editor={editor} className="tiptap-text-area" />
                   </div>
                 </div>
               </div>
+              )}
+
+              {/* ═══════════════════════════════════════════════════
+                  CHAPTER MODE — all scenes in this chapter, read-only
+                  Click any scene to jump into Scene mode and edit it
+              ═══════════════════════════════════════════════════ */}
+              {scriveningsMode === "chapter" && (() => {
+                const safeChaps = Array.isArray(chapters) ? chapters : [];
+                const safeScenes = Array.isArray(scenes) ? scenes : [];
+                const activeChapter = safeChaps.find(c => c.id === activeScene.chapter_id);
+                const chapterScenes = safeScenes
+                  .filter(s => s.chapter_id === activeScene.chapter_id)
+                  .sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0));
+                const totalWords = chapterScenes.reduce((acc, s) => acc + (s.word_count || 0), 0);
+
+                return (
+                  <div className="editor-textarea-scroll" style={{ padding: "3rem 1.5rem 180px 1.5rem" }}>
+                    <div style={{ maxWidth: readingWidth === "compact" ? 680 : readingWidth === "comfort" ? 750 : 850, margin: "0 auto" }}>
+
+                      {/* Chapter Header */}
+                      <div style={{ marginBottom: "2.5rem" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", marginBottom: "0.4rem" }}>
+                          <span style={{ fontSize: "0.72rem", color: "#9f8ad0", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em" }}>Chapter View</span>
+                        </div>
+                        <h1 style={{ margin: 0, fontSize: "2rem", fontWeight: 800, color: "#fff", fontFamily: preferences.editorFont || "'Source Serif 4', serif" }}>
+                          {activeChapter?.title || "Untitled Chapter"}
+                        </h1>
+                        <div style={{ display: "flex", gap: "1.25rem", marginTop: "0.6rem" }}>
+                          <span style={{ fontSize: "0.78rem", color: "#64748b" }}>📄 {chapterScenes.length} scene{chapterScenes.length !== 1 ? "s" : ""}</span>
+                          <span style={{ fontSize: "0.78rem", color: "#64748b" }}>📝 {totalWords.toLocaleString()} words</span>
+                        </div>
+                        <div style={{ height: "1px", background: "rgba(255,255,255,0.06)", marginTop: "1.5rem" }} />
+                      </div>
+
+                      {chapterScenes.length === 0 && (
+                        <div style={{ textAlign: "center", padding: "4rem 0", color: "#64748b" }}>
+                          <div style={{ fontSize: "2rem", marginBottom: "0.75rem" }}>📄</div>
+                          <div style={{ fontWeight: 600, marginBottom: "0.4rem" }}>No scenes in this chapter yet</div>
+                          <div style={{ fontSize: "0.82rem" }}>Add scenes to this chapter from the sidebar, then they'll appear here.</div>
+                        </div>
+                      )}
+
+                      {/* Scene Cards — stitched together */}
+                      {chapterScenes.map((scene, idx) => {
+                        // Render scene text content
+                        let previewText = "";
+                        try {
+                          const parsed = JSON.parse(scene.content || "");
+                          const extractText = (node: any): string => {
+                            if (!node) return "";
+                            if (node.type === "text") return node.text || "";
+                            if (node.content) return node.content.map(extractText).join(" ");
+                            return "";
+                          };
+                          previewText = extractText(parsed).trim();
+                        } catch {
+                          previewText = (scene.content || "").replace(/<[^>]+>/g, " ").trim();
+                        }
+
+                        return (
+                          <div key={scene.id} style={{ marginBottom: "3rem" }}>
+                            {/* Scene separator */}
+                            {idx > 0 && (
+                              <div style={{ display: "flex", alignItems: "center", gap: "1rem", marginBottom: "2.5rem" }}>
+                                <div style={{ flex: 1, height: "1px", background: "rgba(255,255,255,0.04)" }} />
+                                <span style={{ fontSize: "0.65rem", color: "rgba(255,255,255,0.15)", fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase" }}>Scene {idx + 1}</span>
+                                <div style={{ flex: 1, height: "1px", background: "rgba(255,255,255,0.04)" }} />
+                              </div>
+                            )}
+
+                            {/* Scene title */}
+                            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.75rem" }}>
+                              <h2 style={{
+                                margin: 0,
+                                fontSize: "1.4rem",
+                                fontWeight: 700,
+                                color: "#e2e8f0",
+                                fontFamily: preferences.editorFont || "'Source Serif 4', serif"
+                              }}>
+                                {scene.title || "Untitled Scene"}
+                              </h2>
+                              <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", flexShrink: 0 }}>
+                                <span style={{ fontSize: "0.72rem", color: "#475569" }}>{(scene.word_count || 0).toLocaleString()} words</span>
+                                <button
+                                  onClick={() => { setActiveSceneId(scene.id); setScriveningsMode("scene"); }}
+                                  style={{
+                                    background: "rgba(159,138,208,0.15)",
+                                    color: "#c084fc",
+                                    border: "1px solid rgba(192,132,252,0.25)",
+                                    borderRadius: "6px",
+                                    padding: "0.25rem 0.7rem",
+                                    fontSize: "0.72rem",
+                                    fontWeight: 700,
+                                    cursor: "pointer"
+                                  }}
+                                >
+                                  ✏️ Edit Scene
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Scene body — read-only prose */}
+                            <div
+                              onClick={() => { setActiveSceneId(scene.id); setScriveningsMode("scene"); }}
+                              title="Click to edit this scene"
+                              style={{
+                                fontFamily: preferences.editorFont || "'Source Serif 4', serif",
+                                fontSize: "var(--editor-font-size, 18px)",
+                                lineHeight: "var(--editor-line-height, 1.75)",
+                                color: "rgba(255,255,255,0.78)",
+                                cursor: "pointer",
+                                whiteSpace: "pre-wrap",
+                                wordBreak: "break-word",
+                                padding: "0.5rem 0",
+                                borderLeft: "3px solid transparent",
+                                paddingLeft: "0",
+                                transition: "border-color 0.15s ease, color 0.15s ease"
+                              }}
+                              onMouseEnter={e => {
+                                (e.currentTarget as HTMLDivElement).style.borderLeftColor = "rgba(192,132,252,0.3)";
+                                (e.currentTarget as HTMLDivElement).style.paddingLeft = "0.75rem";
+                                (e.currentTarget as HTMLDivElement).style.color = "rgba(255,255,255,0.92)";
+                              }}
+                              onMouseLeave={e => {
+                                (e.currentTarget as HTMLDivElement).style.borderLeftColor = "transparent";
+                                (e.currentTarget as HTMLDivElement).style.paddingLeft = "0";
+                                (e.currentTarget as HTMLDivElement).style.color = "rgba(255,255,255,0.78)";
+                              }}
+                            >
+                              {previewText || (
+                                <span style={{ color: "rgba(255,255,255,0.2)", fontStyle: "italic" }}>
+                                  This scene is empty. Click to start writing...
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+
+                      {/* Add scene to chapter CTA */}
+                      {chapterScenes.length > 0 && (
+                        <div style={{ borderTop: "1px solid rgba(255,255,255,0.05)", paddingTop: "2rem", display: "flex", justifyContent: "center" }}>
+                          <button
+                            onClick={() => {
+                              const ch = Array.isArray(chapters) ? chapters.find(c => c.id === activeScene.chapter_id) : null;
+                              if (ch) {
+                                const evt = new CustomEvent("aevorin:addSceneToChapter", { detail: { chapterId: ch.id } });
+                                window.dispatchEvent(evt);
+                              }
+                            }}
+                            style={{
+                              background: "rgba(124,58,237,0.12)",
+                              color: "#c084fc",
+                              border: "1.5px dashed rgba(192,132,252,0.3)",
+                              borderRadius: "10px",
+                              padding: "0.7rem 1.5rem",
+                              fontSize: "0.82rem",
+                              fontWeight: 700,
+                              cursor: "pointer",
+                              display: "flex",
+                              alignItems: "center",
+                              gap: "0.5rem"
+                            }}
+                          >
+                            + Add New Scene to {activeChapter?.title || "Chapter"}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* ═══════════════════════════════════════════════════
+                  BOOK MODE — all chapters with all scenes
+              ═══════════════════════════════════════════════════ */}
+              {scriveningsMode === "book" && (() => {
+                const safeChaps = Array.isArray(chapters) ? chapters : [];
+                const safeScenes = Array.isArray(scenes) ? scenes : [];
+                const totalWords = safeScenes.reduce((acc, s) => acc + (s.word_count || 0), 0);
+
+                return (
+                  <div className="editor-textarea-scroll" style={{ padding: "3rem 1.5rem 180px 1.5rem" }}>
+                    <div style={{ maxWidth: readingWidth === "compact" ? 680 : readingWidth === "comfort" ? 750 : 850, margin: "0 auto" }}>
+
+                      {/* Book Header */}
+                      <div style={{ marginBottom: "3rem", textAlign: "center" }}>
+                        <div style={{ fontSize: "0.72rem", color: "#9f8ad0", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: "0.6rem" }}>Book Overview</div>
+                        <div style={{ display: "flex", justifyContent: "center", gap: "2rem" }}>
+                          <span style={{ fontSize: "0.82rem", color: "#64748b" }}>📚 {safeChaps.length} chapters</span>
+                          <span style={{ fontSize: "0.82rem", color: "#64748b" }}>📄 {safeScenes.length} scenes</span>
+                          <span style={{ fontSize: "0.82rem", color: "#64748b" }}>📝 {totalWords.toLocaleString()} words</span>
+                        </div>
+                        <div style={{ height: "1px", background: "rgba(255,255,255,0.06)", marginTop: "1.5rem" }} />
+                      </div>
+
+                      {safeChaps.map((ch, chIdx) => {
+                        const chScenes = safeScenes
+                          .filter(s => s.chapter_id === ch.id)
+                          .sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0));
+                        const chWords = chScenes.reduce((acc, s) => acc + (s.word_count || 0), 0);
+
+                        return (
+                          <div key={ch.id} style={{ marginBottom: "4rem" }}>
+                            {/* Chapter heading */}
+                            <div style={{ marginBottom: "1.5rem" }}>
+                              <div style={{ fontSize: "0.68rem", color: "#6d6d8e", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: "0.3rem" }}>
+                                Chapter {chIdx + 1}
+                              </div>
+                              <h2 style={{ margin: 0, fontSize: "1.6rem", fontWeight: 800, color: "#fff", fontFamily: preferences.editorFont || "'Source Serif 4', serif" }}>
+                                {ch.title}
+                              </h2>
+                              <div style={{ fontSize: "0.75rem", color: "#475569", marginTop: "0.3rem" }}>
+                                {chScenes.length} scene{chScenes.length !== 1 ? "s" : ""} · {chWords.toLocaleString()} words
+                              </div>
+                              <div style={{ height: "1px", background: "rgba(255,255,255,0.05)", marginTop: "1rem" }} />
+                            </div>
+
+                            {chScenes.length === 0 && (
+                              <div style={{ color: "rgba(255,255,255,0.2)", fontStyle: "italic", fontSize: "0.9rem", paddingLeft: "1rem" }}>
+                                No scenes yet in this chapter.
+                              </div>
+                            )}
+
+                            {chScenes.map((scene, sIdx) => {
+                              let previewText = "";
+                              try {
+                                const parsed = JSON.parse(scene.content || "");
+                                const extractText = (node: any): string => {
+                                  if (!node) return "";
+                                  if (node.type === "text") return node.text || "";
+                                  if (node.content) return node.content.map(extractText).join(" ");
+                                  return "";
+                                };
+                                previewText = extractText(parsed).trim();
+                              } catch {
+                                previewText = (scene.content || "").replace(/<[^>]+>/g, " ").trim();
+                              }
+
+                              return (
+                                <div key={scene.id} style={{ marginBottom: "2.5rem" }}>
+                                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.5rem" }}>
+                                    <div style={{ fontSize: "0.72rem", color: "#64748b", fontStyle: "italic" }}>
+                                      Scene {sIdx + 1} · {(scene.word_count || 0).toLocaleString()} words
+                                    </div>
+                                    <button
+                                      onClick={() => { setActiveSceneId(scene.id); setScriveningsMode("scene"); }}
+                                      style={{ background: "none", color: "#7c3aed", border: "none", fontSize: "0.72rem", cursor: "pointer", fontWeight: 700 }}
+                                    >
+                                      Edit ›
+                                    </button>
+                                  </div>
+                                  <div style={{ fontWeight: 600, fontSize: "1rem", color: "#e2e8f0", marginBottom: "0.5rem", fontFamily: preferences.editorFont || "'Source Serif 4', serif" }}>
+                                    {scene.title || "Untitled Scene"}
+                                  </div>
+                                  <div
+                                    onClick={() => { setActiveSceneId(scene.id); setScriveningsMode("scene"); }}
+                                    style={{
+                                      fontFamily: preferences.editorFont || "'Source Serif 4', serif",
+                                      fontSize: "calc(var(--editor-font-size, 18px) * 0.9)",
+                                      lineHeight: "var(--editor-line-height, 1.75)",
+                                      color: "rgba(255,255,255,0.6)",
+                                      cursor: "pointer",
+                                      whiteSpace: "pre-wrap",
+                                      wordBreak: "break-word",
+                                      display: "-webkit-box",
+                                      WebkitLineClamp: 6,
+                                      WebkitBoxOrient: "vertical",
+                                      overflow: "hidden"
+                                    }}
+                                  >
+                                    {previewText || <span style={{ fontStyle: "italic", color: "rgba(255,255,255,0.2)" }}>Empty scene — click to write</span>}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* Scene Status Bar */}
               <div style={{
