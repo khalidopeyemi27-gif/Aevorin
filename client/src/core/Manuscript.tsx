@@ -394,6 +394,8 @@ export default function Manuscript({
   const editor = useEditor({
     extensions: [StarterKit],
     content: "",
+    editable: true,
+    autofocus: false,
     onFocus: () => {
       setIsEditorFocused(true);
     },
@@ -1896,7 +1898,13 @@ export default function Manuscript({
                     }}
                     placeholder="Untitled Scene"
                   />
-                  <EditorContent editor={editor} className="tiptap-text-area" />
+                  {/* Clickable area: clicking below text focuses the editor */}
+                  <div
+                    onClick={() => editor?.chain().focus().run()}
+                    style={{ minHeight: "60vh", cursor: "text" }}
+                  >
+                    <EditorContent editor={editor} className="tiptap-text-area" />
+                  </div>
                 </div>
               </div>
 

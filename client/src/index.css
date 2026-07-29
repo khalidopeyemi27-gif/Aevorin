@@ -1092,6 +1092,37 @@ body {
   line-height: var(--editor-line-height, 1.75);
   font-family: var(--font-editor), 'Source Serif 4', serif;
   transition: max-width 0.2s ease, font-size 0.2s ease, line-height 0.2s ease;
+  cursor: text;
+  /* Ensures clicks anywhere near the editor register */
+  position: relative;
+  z-index: 1;
+}
+
+/* The actual contenteditable div TipTap renders */
+.tiptap-text-area .ProseMirror {
+  min-height: 60vh;
+  outline: none;
+  cursor: text;
+  padding-bottom: 8rem;
+  caret-color: #c084fc;
+  /* Prevent any overlay from swallowing click events */
+  pointer-events: all;
+  position: relative;
+  z-index: 1;
+}
+
+.tiptap-text-area .ProseMirror:focus {
+  outline: none;
+}
+
+/* Placeholder when editor is empty */
+.tiptap-text-area .ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  color: rgba(255, 255, 255, 0.18);
+  pointer-events: none;
+  float: left;
+  height: 0;
+  font-style: italic;
 }
 
 .tiptap-text-area *:focus {
