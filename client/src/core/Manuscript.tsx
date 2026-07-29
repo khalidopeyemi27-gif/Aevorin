@@ -342,47 +342,6 @@ export default function Manuscript({
   // Track recent activity
   useActivityTracker(projectId, activeSceneId, "scene", dirty ? "edited" : "viewed");
 
-  // Ref to track first load
-  const isInitialLoad = useRef(true);
-
-  // Continue memory: load and save last active scene
-  useEffect(() => {
-    const safeScenes = Array.isArray(scenes) ? scenes : [];
-    if (!activeSceneId && safeScenes.length > 0) {
-      const saved = localStorage.getItem(`aevorin_last_scene_${projectId}`);
-      if (saved && safeScenes.some(s => s.id === saved)) {
-        setActiveSceneId(saved);
-      } else {
-        setActiveSceneId(safeScenes[0].id);
-      }
-    }
-  }, [projectId, scenes, activeSceneId]);
-
-  useEffect(() => {
-    if (activeSceneId) {
-      localStorage.setItem(`aevorin_last_scene_${projectId}`, activeSceneId);
-    }
-  }, [activeSceneId, projectId]);
-
-  // Session active duration tracker
-  useEffect(() => {
-    const todayStr = new Date().toISOString().split('T')[0];
-    const durationKey = `aevorin_session_duration_${projectId}_${todayStr}`;
-    
-    const interval = setInterval(() => {
-      if (document.hasFocus() && activeSceneId) {
-        try {
-          const current = parseInt(localStorage.getItem(durationKey) || "5280", 10);
-          localStorage.setItem(durationKey, (current + 1).toString());
-        } catch (e) {
-          console.error(e);
-        }
-      }
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [projectId, activeSceneId]);
-
   const updateActiveScene = (updatedFields: Partial<Scene>) => {
     setActiveScene(prev => {
       if (!prev) return null;
@@ -390,6 +349,10 @@ export default function Manuscript({
     });
     setDirty(true);
   };
+
+  // Ref to track first load & currently loaded scene ID in TipTap
+  const isInitialLoad = useRef(true);
+  const currentLoadedSceneIdRef = useRef<string | null>(null);
 
   const editor = useEditor({
     extensions: [StarterKit],
@@ -426,56 +389,62 @@ export default function Manuscript({
   // Load active scene & version checkpoints
   useEffect(() => {
     if (activeSceneId) {
-      isInitialLoad.current = true;
       const safeScenes = Array.isArray(scenes) ? scenes : [];
       const scene = safeScenes.find(s => s.id === activeSceneId);
       if (scene) {
         setActiveScene(scene);
         
-        // 🌟 Read latest draft content from IndexedDB Dexie / LocalStorage first!
-        (async () => {
-          let contentToSet = scene.content || "";
-          
-          try {
-            const localDraft = await db.drafts.where("sceneId").equals(scene.id).first();
-            if (localDraft && localDraft.contentDelta) {
-              contentToSet = localDraft.contentDelta;
-            } else {
-              const localDbScene = await db.scenes.get(scene.id);
-              if (localDbScene && localDbScene.content) {
-                contentToSet = localDbScene.content;
-              }
-            }
-          } catch (e) {}
+        // 🌟 Only set editor content if switching to a DIFFERENT scene ID!
+        // Prevents auto-save background refreshes from calling setContent and deleting live typed words.
+        if (currentLoadedSceneIdRef.current !== activeSceneId) {
+          isInitialLoad.current = true;
+          currentLoadedSceneIdRef.current = activeSceneId;
 
-          const savedRecovery = localStorage.getItem(`aevorin_recovery_${scene.id}`);
-          if (savedRecovery) {
+          (async () => {
+            let contentToSet = scene.content || "";
+            
             try {
-              const parsed = JSON.parse(savedRecovery);
-              if (parsed && parsed.content) {
-                contentToSet = JSON.stringify(parsed.content);
+              const localDraft = await db.drafts.where("sceneId").equals(scene.id).first();
+              if (localDraft && localDraft.contentDelta) {
+                contentToSet = localDraft.contentDelta;
+              } else {
+                const localDbScene = await db.scenes.get(scene.id);
+                if (localDbScene && localDbScene.content) {
+                  contentToSet = localDbScene.content;
+                }
               }
             } catch (e) {}
-          }
 
-          if (editor && !editor.isDestroyed) {
-            try {
-              const parsed = JSON.parse(contentToSet);
-              editor.commands.setContent(parsed);
-            } catch (e) {
-              editor.commands.setContent(contentToSet);
+            const savedRecovery = localStorage.getItem(`aevorin_recovery_${scene.id}`);
+            if (savedRecovery) {
+              try {
+                const parsed = JSON.parse(savedRecovery);
+                if (parsed && parsed.content) {
+                  contentToSet = JSON.stringify(parsed.content);
+                }
+              } catch (e) {}
             }
-          }
-        })();
 
-        fetchVersionHistory(scene.id);
-        setDirty(false);
+            if (editor && !editor.isDestroyed) {
+              try {
+                const parsed = JSON.parse(contentToSet);
+                editor.commands.setContent(parsed);
+              } catch (e) {
+                editor.commands.setContent(contentToSet);
+              }
+            }
+
+            fetchVersionHistory(scene.id);
+            setDirty(false);
+
+            setTimeout(() => {
+              isInitialLoad.current = false;
+            }, 200);
+          })();
+        }
       }
-      // Re-enable dirty logging after rendering finishes
-      setTimeout(() => {
-        isInitialLoad.current = false;
-      }, 200);
     } else {
+      currentLoadedSceneIdRef.current = null;
       setActiveScene(null);
       if (editor && !editor.isDestroyed) editor.commands.setContent("");
       setVersions([]);
@@ -1917,9 +1886,10 @@ export default function Manuscript({
                         </div>
                       )}
 
-                      {/* Scene Cards — stitched together */}
+                      {/* Scene Cards — stitched together with live inline editing */}
                       {chapterScenes.map((scene, idx) => {
-                        // Render scene text content
+                        const isActive = scene.id === activeSceneId;
+
                         let previewText = "";
                         try {
                           const parsed = JSON.parse(scene.content || "");
@@ -1935,10 +1905,21 @@ export default function Manuscript({
                         }
 
                         return (
-                          <div key={scene.id} style={{ marginBottom: "3rem" }}>
+                          <div
+                            key={scene.id}
+                            style={{
+                              marginBottom: "3rem",
+                              padding: isActive ? "1.5rem" : "0.75rem 1rem",
+                              background: isActive ? "rgba(20, 19, 29, 0.7)" : "transparent",
+                              border: isActive ? "1px solid rgba(192, 132, 252, 0.3)" : "1px solid transparent",
+                              borderRadius: "14px",
+                              boxShadow: isActive ? "0 10px 30px rgba(0,0,0,0.3)" : "none",
+                              transition: "all 0.2s ease"
+                            }}
+                          >
                             {/* Scene separator */}
-                            {idx > 0 && (
-                              <div style={{ display: "flex", alignItems: "center", gap: "1rem", marginBottom: "2.5rem" }}>
+                            {idx > 0 && !isActive && (
+                              <div style={{ display: "flex", alignItems: "center", gap: "1rem", marginBottom: "1.5rem" }}>
                                 <div style={{ flex: 1, height: "1px", background: "rgba(255,255,255,0.04)" }} />
                                 <span style={{ fontSize: "0.65rem", color: "rgba(255,255,255,0.15)", fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase" }}>Scene {idx + 1}</span>
                                 <div style={{ flex: 1, height: "1px", background: "rgba(255,255,255,0.04)" }} />
@@ -1947,69 +1928,93 @@ export default function Manuscript({
 
                             {/* Scene title */}
                             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.75rem" }}>
-                              <h2 style={{
-                                margin: 0,
-                                fontSize: "1.4rem",
-                                fontWeight: 700,
-                                color: "#e2e8f0",
-                                fontFamily: preferences.editorFont || "'Source Serif 4', serif"
-                              }}>
-                                {scene.title || "Untitled Scene"}
-                              </h2>
-                              <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", flexShrink: 0 }}>
-                                <span style={{ fontSize: "0.72rem", color: "#475569" }}>{(scene.word_count || 0).toLocaleString()} words</span>
-                                <button
-                                  onClick={() => { setActiveSceneId(scene.id); setScriveningsMode("scene"); }}
+                              {isActive ? (
+                                <input
+                                  type="text"
+                                  value={activeScene?.title || scene.title}
+                                  onChange={(e) => updateActiveScene({ title: e.target.value })}
                                   style={{
-                                    background: "rgba(159,138,208,0.15)",
-                                    color: "#c084fc",
-                                    border: "1px solid rgba(192,132,252,0.25)",
-                                    borderRadius: "6px",
-                                    padding: "0.25rem 0.7rem",
-                                    fontSize: "0.72rem",
-                                    fontWeight: 700,
-                                    cursor: "pointer"
+                                    background: "none", border: "none", color: "#fff",
+                                    fontFamily: preferences.editorFont || "'Source Serif 4', serif",
+                                    fontSize: "1.4rem", fontWeight: "bold", width: "70%", outline: "none"
+                                  }}
+                                  placeholder="Scene Title"
+                                />
+                              ) : (
+                                <h2
+                                  onClick={() => setActiveSceneId(scene.id)}
+                                  style={{
+                                    margin: 0, fontSize: "1.4rem", fontWeight: 700, color: "#cbd5e1",
+                                    fontFamily: preferences.editorFont || "'Source Serif 4', serif", cursor: "pointer"
                                   }}
                                 >
-                                  ✏️ Edit Scene
-                                </button>
+                                  {scene.title || "Untitled Scene"}
+                                </h2>
+                              )}
+
+                              <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+                                <span style={{ fontSize: "0.72rem", color: "#475569" }}>{(scene.word_count || 0).toLocaleString()} words</span>
+                                {isActive ? (
+                                  <span style={{
+                                    background: "rgba(192, 132, 252, 0.2)", color: "#c084fc",
+                                    borderRadius: "6px", padding: "0.2rem 0.6rem", fontSize: "0.7rem", fontWeight: 700
+                                  }}>
+                                    ✍️ Active Editor
+                                  </span>
+                                ) : (
+                                  <button
+                                    onClick={() => setActiveSceneId(scene.id)}
+                                    style={{
+                                      background: "rgba(255,255,255,0.05)", color: "#94a3b8",
+                                      border: "1px solid rgba(255,255,255,0.1)", borderRadius: "6px",
+                                      padding: "0.25rem 0.65rem", fontSize: "0.72rem", fontWeight: 600, cursor: "pointer"
+                                    }}
+                                  >
+                                    Click to Write
+                                  </button>
+                                )}
                               </div>
                             </div>
 
-                            {/* Scene body — read-only prose */}
-                            <div
-                              onClick={() => { setActiveSceneId(scene.id); setScriveningsMode("scene"); }}
-                              title="Click to edit this scene"
-                              style={{
-                                fontFamily: preferences.editorFont || "'Source Serif 4', serif",
-                                fontSize: "var(--editor-font-size, 18px)",
-                                lineHeight: "var(--editor-line-height, 1.75)",
-                                color: "rgba(255,255,255,0.78)",
-                                cursor: "pointer",
-                                whiteSpace: "pre-wrap",
-                                wordBreak: "break-word",
-                                padding: "0.5rem 0",
-                                borderLeft: "3px solid transparent",
-                                paddingLeft: "0",
-                                transition: "border-color 0.15s ease, color 0.15s ease"
-                              }}
-                              onMouseEnter={e => {
-                                (e.currentTarget as HTMLDivElement).style.borderLeftColor = "rgba(192,132,252,0.3)";
-                                (e.currentTarget as HTMLDivElement).style.paddingLeft = "0.75rem";
-                                (e.currentTarget as HTMLDivElement).style.color = "rgba(255,255,255,0.92)";
-                              }}
-                              onMouseLeave={e => {
-                                (e.currentTarget as HTMLDivElement).style.borderLeftColor = "transparent";
-                                (e.currentTarget as HTMLDivElement).style.paddingLeft = "0";
-                                (e.currentTarget as HTMLDivElement).style.color = "rgba(255,255,255,0.78)";
-                              }}
-                            >
-                              {previewText || (
-                                <span style={{ color: "rgba(255,255,255,0.2)", fontStyle: "italic" }}>
-                                  This scene is empty. Click to start writing...
-                                </span>
-                              )}
-                            </div>
+                            {/* Active Scene gets Live TipTap Editor / Inactive Scene gets Clickable Preview */}
+                            {isActive ? (
+                              <div onClick={() => editor?.chain().focus().run()} style={{ minHeight: "250px", cursor: "text", paddingTop: "0.5rem" }}>
+                                <EditorContent editor={editor} className="tiptap-text-area" />
+                              </div>
+                            ) : (
+                              <div
+                                onClick={() => setActiveSceneId(scene.id)}
+                                title="Click to start writing in this scene"
+                                style={{
+                                  fontFamily: preferences.editorFont || "'Source Serif 4', serif",
+                                  fontSize: "var(--editor-font-size, 18px)",
+                                  lineHeight: "var(--editor-line-height, 1.75)",
+                                  color: "rgba(255,255,255,0.7)",
+                                  cursor: "pointer",
+                                  whiteSpace: "pre-wrap",
+                                  wordBreak: "break-word",
+                                  padding: "0.75rem",
+                                  borderRadius: "8px",
+                                  background: "rgba(255,255,255,0.02)",
+                                  border: "1px dashed rgba(255,255,255,0.06)",
+                                  transition: "all 0.15s ease"
+                                }}
+                                onMouseEnter={e => {
+                                  (e.currentTarget as HTMLDivElement).style.borderColor = "rgba(192,132,252,0.3)";
+                                  (e.currentTarget as HTMLDivElement).style.background = "rgba(192,132,252,0.04)";
+                                }}
+                                onMouseLeave={e => {
+                                  (e.currentTarget as HTMLDivElement).style.borderColor = "rgba(255,255,255,0.06)";
+                                  (e.currentTarget as HTMLDivElement).style.background = "rgba(255,255,255,0.02)";
+                                }}
+                              >
+                                {previewText || (
+                                  <span style={{ color: "rgba(255,255,255,0.25)", fontStyle: "italic" }}>
+                                    Click here to start writing scene...
+                                  </span>
+                                )}
+                              </div>
+                            )}
                           </div>
                         );
                       })}
