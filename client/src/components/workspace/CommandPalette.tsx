@@ -17,6 +17,7 @@ interface CommandPaletteProps {
   onImportManuscript: () => void;
   onExportEPUB: () => void;
   onBackToDashboard: () => void;
+  onOpenSanctuaryOnboarding?: () => void;
 }
 
 export function CommandPalette({
@@ -28,7 +29,8 @@ export function CommandPalette({
   onCreateChapter,
   onImportManuscript,
   onExportEPUB,
-  onBackToDashboard
+  onBackToDashboard,
+  onOpenSanctuaryOnboarding
 }: CommandPaletteProps) {
   const [search, setSearch] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -42,6 +44,7 @@ export function CommandPalette({
     { id: "nav-analytics", name: "Open Narratives Analytics", category: "Navigation", action: () => onNavigate("analytics") },
     { id: "nav-backups", name: "Open Snapshots & Backups", category: "Navigation", action: () => onNavigate("backups") },
     
+    { id: "act-sanctuary", name: "🌙 Re-run Sanctuary Onboarding Setup", category: "Preferences", action: () => { if (onOpenSanctuaryOnboarding) onOpenSanctuaryOnboarding(); } },
     { id: "act-focus", name: "Toggle Focus Mode (Zen)", category: "Actions", action: onToggleFocus },
     { id: "act-chapter", name: "Create New Chapter", category: "Actions", action: onCreateChapter },
     { id: "act-import", name: "Import Manuscript (.txt/.md)", category: "Actions", action: onImportManuscript },

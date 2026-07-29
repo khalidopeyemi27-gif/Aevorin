@@ -10,6 +10,7 @@ import { SearchOverlay } from "../components/workspace/SearchOverlay";
 import { Modal, Button, FAB, BottomSheet } from "../components/ui";
 import { EntityRepository } from "../database/repositories/entityRepository";
 import { ManuscriptRepository } from "../database/repositories/manuscriptRepository";
+import { SanctuaryOnboardingModal } from "../components/onboarding/SanctuaryOnboardingModal";
 
 function parseManuscriptLocally(content: string) {
   const lines = content.split(/\r?\n/);
@@ -218,6 +219,7 @@ export default function Workspace({
   // Command Palette & Trigger Action state
   const [showCommandPalette, setShowCommandPalette] = useState(false);
   const [showSearchOverlay, setShowSearchOverlay] = useState(false);
+  const [showSanctuaryOnboarding, setShowSanctuaryOnboarding] = useState(false);
   const [showQuickActions, setShowQuickActions] = useState(false);
   const [importPreview, setImportPreview] = useState<{
     filename: string;
@@ -422,6 +424,10 @@ export default function Workspace({
 
   useEffect(() => {
     loadAllWorkspaceData();
+    const onboardingCompleted = localStorage.getItem("aevorin_onboarding_completed");
+    if (!onboardingCompleted) {
+      setShowSanctuaryOnboarding(true);
+    }
   }, [project.id]);
 
   useEffect(() => {
@@ -1846,6 +1852,7 @@ export default function Workspace({
         onImportManuscript={() => importInputRef.current?.click()}
         onExportEPUB={() => { setActiveTab("export"); setExportFormat("epub"); handleExport(); }}
         onBackToDashboard={onBackToDashboard}
+        onOpenSanctuaryOnboarding={() => setShowSanctuaryOnboarding(true)}
       />
 
       <SearchOverlay
@@ -1862,6 +1869,20 @@ export default function Workspace({
           setSelectedChapterId(chapterId);
           if (sceneId) setSelectedSceneId(sceneId);
           setActiveTab("manuscript");
+        }}
+      />
+
+      <SanctuaryOnboardingModal
+        isOpen={showSanctuaryOnboarding}
+        onClose={() => setShowSanctuaryOnboarding(false)}
+        onComplete={(newProj) => {
+          loadAllWorkspaceData();
+          if (newProj?.style === "planner") {
+            setActiveTab("overview");
+          } else {
+            setActiveTab("manuscript");
+          }
+          showToast(`Welcome to your sanctuary, ${project.name || project.id}!`, "success");
         }}
       />
       {/* Hidden Manuscript Import File Input */}
