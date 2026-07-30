@@ -1278,8 +1278,8 @@ export default function Workspace({
 
             const toggleSection = (id: string) => {
               setOpenCompilerSections(prev => {
-                const currentlyOpen = prev[id] !== false;
-                return { ...prev, [id]: !currentlyOpen };
+                const isCurrentlyOpen = prev[id] !== false;
+                return { ...prev, [id]: !isCurrentlyOpen };
               });
             };
 
@@ -1315,19 +1315,11 @@ export default function Workspace({
                     boxShadow: isSelected ? "0 4px 20px rgba(224,142,109,0.15)" : "none"
                   }}
                 >
-                  <div
-                    role="button"
-                    tabIndex={0}
+                  <button
+                    type="button"
                     onClick={() => {
                       setActiveCompilerStep(id);
                       toggleSection(id);
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === " ") {
-                        e.preventDefault();
-                        setActiveCompilerStep(id);
-                        toggleSection(id);
-                      }
                     }}
                     style={{
                       width: "100%",
@@ -1335,15 +1327,16 @@ export default function Workspace({
                       alignItems: "center",
                       justifyContent: "space-between",
                       padding: "1.1rem 1.25rem",
-                      background: isSelected ? "rgba(224,142,109,0.06)" : "none",
+                      background: isSelected ? "rgba(224,142,109,0.06)" : "transparent",
+                      border: "none",
                       cursor: "pointer",
                       gap: "0.75rem",
                       userSelect: "none",
-                      touchAction: "manipulation",
+                      outline: "none",
                       minHeight: "48px"
                     }}
                   >
-                    <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", pointerEvents: "none" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
                       <span style={{ fontSize: "1.1rem" }}>{icon}</span>
                       <span style={{ fontSize: "0.95rem", fontWeight: 700, color: isSelected ? "#e08e6d" : isOpen ? "#fff" : "#94a3b8" }}>{title}</span>
                     </div>
@@ -1361,14 +1354,13 @@ export default function Workspace({
                         display: "flex",
                         alignItems: "center",
                         gap: "0.35rem",
-                        pointerEvents: "none",
                         transition: "all 0.2s ease"
                       }}
                     >
                       <span>{isOpen ? "Hide" : "Open"}</span>
                       <span style={{ transform: isOpen ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s ease", display: "inline-block", fontSize: "0.65rem" }}>▼</span>
                     </div>
-                  </div>
+                  </button>
                   {isOpen && (
                     <div style={{ padding: "0 1.25rem 1.25rem", borderTop: "1px solid rgba(255,255,255,0.05)" }}>
                       {children}
