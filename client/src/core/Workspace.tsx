@@ -191,6 +191,8 @@ export default function Workspace({
   const [exporting, setExporting] = useState(false);
 
   // Manuscript Compiler sub-panel state
+  const [activeCompilerStep, setActiveCompilerStep] = useState<string>("formatting");
+  const [compilerViewMode, setCompilerViewMode] = useState<"tab" | "all">("all");
   const [openCompilerSections, setOpenCompilerSections] = useState<Record<string, boolean>>({
     formatting: true,
     "chapter-ordering": true,
@@ -1254,29 +1256,74 @@ export default function Workspace({
             const orderedChapters = safeOrdering.length > 0 ? safeOrdering : safeChapters;
             const totalWords = safeScenes.reduce((s: number, sc: any) => s + (sc?.word_count || 0), 0);
 
+            const stepsList = [
+              { id: "formatting", label: "1. Formatting", icon: "🖋" },
+              { id: "chapter-ordering", label: "2. Chapters", icon: "📋" },
+              { id: "scene-break", label: "3. Breaks", icon: "✂️" },
+              { id: "front-matter", label: "4. Front Matter", icon: "📰" },
+              { id: "back-matter", label: "5. Back Matter", icon: "📎" },
+              { id: "consistency", label: "6. Consistency", icon: "🔍" },
+              { id: "word-count", label: "7. Reports", icon: "📊" },
+              { id: "export-packages", label: "8. Export", icon: "📦" }
+            ];
+
+            const jumpToStep = (stepId: string) => {
+              setActiveCompilerStep(stepId);
+              setOpenCompilerSections(prev => ({ ...prev, [stepId]: true }));
+              setTimeout(() => {
+                const el = document.getElementById(`compiler-step-${stepId}`);
+                if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+              }, 50);
+            };
+
             const toggleSection = (id: string) => {
               setOpenCompilerSections(prev => ({ ...prev, [id]: !prev[id] }));
             };
 
+            const expandAllSections = () => {
+              const all: Record<string, boolean> = {};
+              stepsList.forEach(s => all[s.id] = true);
+              setOpenCompilerSections(all);
+            };
+
+            const collapseAllSections = () => {
+              const none: Record<string, boolean> = {};
+              stepsList.forEach(s => none[s.id] = false);
+              setOpenCompilerSections(none);
+            };
+
             const SectionCard = ({ id, icon, title, children }: { id: string; icon: string; title: string; children: React.ReactNode }) => {
               const isOpen = openCompilerSections[id] !== false;
+              const isSelected = activeCompilerStep === id;
+
+              if (compilerViewMode === "tab" && !isSelected) {
+                return null;
+              }
+
               return (
-                <div style={{
-                  background: "rgba(255,255,255,0.025)",
-                  border: isOpen ? "1px solid rgba(224,142,109,0.3)" : "1px solid rgba(255,255,255,0.06)",
-                  borderRadius: "12px",
-                  overflow: "hidden",
-                  transition: "border-color 0.2s"
-                }}>
+                <div
+                  id={`compiler-step-${id}`}
+                  style={{
+                    background: "rgba(255,255,255,0.025)",
+                    border: isSelected ? "1px solid rgba(224,142,109,0.5)" : isOpen ? "1px solid rgba(159,138,208,0.25)" : "1px solid rgba(255,255,255,0.06)",
+                    borderRadius: "12px",
+                    overflow: "hidden",
+                    transition: "all 0.2s ease",
+                    boxShadow: isSelected ? "0 4px 20px rgba(224,142,109,0.15)" : "none"
+                  }}
+                >
                   <button
-                    onClick={() => toggleSection(id)}
+                    onClick={() => {
+                      setActiveCompilerStep(id);
+                      toggleSection(id);
+                    }}
                     style={{
                       width: "100%",
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "space-between",
                       padding: "1rem 1.25rem",
-                      background: "none",
+                      background: isSelected ? "rgba(224,142,109,0.06)" : "none",
                       border: "none",
                       cursor: "pointer",
                       gap: "0.75rem"
@@ -1284,7 +1331,7 @@ export default function Workspace({
                   >
                     <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
                       <span style={{ fontSize: "1.1rem" }}>{icon}</span>
-                      <span style={{ fontSize: "0.9rem", fontWeight: 700, color: isOpen ? "#e08e6d" : "#fff" }}>{title}</span>
+                      <span style={{ fontSize: "0.95rem", fontWeight: 700, color: isSelected ? "#e08e6d" : isOpen ? "#fff" : "#94a3b8" }}>{title}</span>
                     </div>
                     <span style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.3)", transform: isOpen ? "rotate(180deg)" : "none", transition: "transform 0.2s" }}>▼</span>
                   </button>
@@ -1306,7 +1353,7 @@ export default function Workspace({
               <div style={{ flex: 1, overflowY: "auto", background: "#1e1e1e", minHeight: "100%", padding: "1.5rem" }}>
 
                 {/* Header & Preview CTA */}
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "1.5rem" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "1.25rem" }}>
                   <div>
                     <div style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.35)", textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 600, marginBottom: "0.3rem" }}>Aevorin</div>
                     <h2 style={{ fontSize: "1.5rem", fontWeight: 700, color: "#e08e6d", fontFamily: "'Source Serif 4','Georgia',serif", margin: 0 }}>Manuscript Compiler</h2>
@@ -1334,6 +1381,84 @@ export default function Workspace({
                   >
                     👁️ Preview Full Manuscript
                   </button>
+                </div>
+
+                {/* 🌟 STEPPER NAVIGATION BAR */}
+                <div style={{
+                  background: "rgba(255,255,255,0.03)",
+                  border: "1px solid rgba(255,255,255,0.06)",
+                  borderRadius: "12px",
+                  padding: "0.75rem",
+                  marginBottom: "1.25rem"
+                }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.6rem" }}>
+                    <span style={{ fontSize: "0.72rem", color: "#e08e6d", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em" }}>
+                      Compilation Pipeline Steps
+                    </span>
+
+                    <div style={{ display: "flex", gap: "0.4rem" }}>
+                      <button
+                        onClick={() => setCompilerViewMode(compilerViewMode === "all" ? "tab" : "all")}
+                        style={{
+                          background: "rgba(255,255,255,0.05)",
+                          color: "#cbd5e1",
+                          border: "1px solid rgba(255,255,255,0.08)",
+                          borderRadius: "6px",
+                          padding: "0.2rem 0.6rem",
+                          fontSize: "0.7rem",
+                          fontWeight: 600,
+                          cursor: "pointer"
+                        }}
+                      >
+                        {compilerViewMode === "all" ? "🔍 Focus Single Step" : "📜 Show All Steps"}
+                      </button>
+                      <button
+                        onClick={expandAllSections}
+                        style={{ background: "none", border: "none", color: "#9f8ad0", cursor: "pointer", fontSize: "0.7rem", fontWeight: 600 }}
+                      >
+                        Expand All
+                      </button>
+                      <span style={{ color: "rgba(255,255,255,0.2)" }}>•</span>
+                      <button
+                        onClick={collapseAllSections}
+                        style={{ background: "none", border: "none", color: "rgba(255,255,255,0.4)", cursor: "pointer", fontSize: "0.7rem", fontWeight: 600 }}
+                      >
+                        Collapse All
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Step Pills Row */}
+                  <div style={{ display: "flex", gap: "0.5rem", overflowX: "auto", paddingBottom: "0.25rem" }}>
+                    {stepsList.map((st) => {
+                      const isAct = activeCompilerStep === st.id;
+                      return (
+                        <button
+                          key={st.id}
+                          onClick={() => jumpToStep(st.id)}
+                          style={{
+                            background: isAct ? "linear-gradient(135deg, #e08e6d, #9f8ad0)" : "rgba(255,255,255,0.04)",
+                            color: isAct ? "#fff" : "rgba(255,255,255,0.7)",
+                            border: isAct ? "none" : "1px solid rgba(255,255,255,0.07)",
+                            borderRadius: "8px",
+                            padding: "0.4rem 0.8rem",
+                            fontSize: "0.78rem",
+                            fontWeight: isAct ? 700 : 500,
+                            cursor: "pointer",
+                            whiteSpace: "nowrap",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "0.4rem",
+                            transition: "all 0.15s ease",
+                            boxShadow: isAct ? "0 4px 12px rgba(224,142,109,0.3)" : "none"
+                          }}
+                        >
+                          <span>{st.icon}</span>
+                          <span>{st.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
 
                 {/* ── Accordion sections ── */}
@@ -1366,6 +1491,12 @@ export default function Workspace({
                           onClick={() => setCompilerIndent(v => !v)}
                           style={{ ...inputStyle, cursor: "pointer", color: compilerIndent ? "#e08e6d" : "rgba(255,255,255,0.4)", fontWeight: 700 }}
                         >{compilerIndent ? "On" : "Off"}</button>
+                      </div>
+                      <div style={{ marginTop: "1.25rem", display: "flex", justifyContent: "flex-end" }}>
+                        <button
+                          onClick={() => jumpToStep("chapter-ordering")}
+                          style={{ background: "#e08e6d", color: "#fff", border: "none", padding: "0.5rem 1rem", borderRadius: "6px", fontSize: "0.85rem", fontWeight: 700, cursor: "pointer" }}
+                        >Next: Chapter Ordering →</button>
                       </div>
                     </div>
                   </SectionCard>
@@ -1434,6 +1565,16 @@ export default function Workspace({
                         })}
                       </div>
                     )}
+                    <div style={{ marginTop: "1.25rem", display: "flex", justifyContent: "space-between" }}>
+                      <button
+                        onClick={() => jumpToStep("formatting")}
+                        style={{ background: "rgba(255,255,255,0.06)", color: "#cbd5e1", border: "1px solid rgba(255,255,255,0.1)", padding: "0.5rem 1rem", borderRadius: "6px", fontSize: "0.82rem", fontWeight: 600, cursor: "pointer" }}
+                      >← Previous: Formatting</button>
+                      <button
+                        onClick={() => jumpToStep("scene-break")}
+                        style={{ background: "#e08e6d", color: "#fff", border: "none", padding: "0.5rem 1rem", borderRadius: "6px", fontSize: "0.85rem", fontWeight: 700, cursor: "pointer" }}
+                      >Next: Scene Breaks →</button>
+                    </div>
                   </SectionCard>
 
                   {/* 3. Scene Break Detection */}
@@ -1457,6 +1598,16 @@ export default function Workspace({
                         <p style={{ color: "rgba(255,255,255,0.7)", fontSize: "0.82rem", lineHeight: 1.7, margin: 0, fontFamily: "Georgia,serif" }}>
                           Three days later, the letter arrived.
                         </p>
+                      </div>
+                      <div style={{ marginTop: "1.25rem", display: "flex", justifyContent: "space-between" }}>
+                        <button
+                          onClick={() => jumpToStep("chapter-ordering")}
+                          style={{ background: "rgba(255,255,255,0.06)", color: "#cbd5e1", border: "1px solid rgba(255,255,255,0.1)", padding: "0.5rem 1rem", borderRadius: "6px", fontSize: "0.82rem", fontWeight: 600, cursor: "pointer" }}
+                        >← Previous: Chapters</button>
+                        <button
+                          onClick={() => jumpToStep("front-matter")}
+                          style={{ background: "#e08e6d", color: "#fff", border: "none", padding: "0.5rem 1rem", borderRadius: "6px", fontSize: "0.85rem", fontWeight: 700, cursor: "pointer" }}
+                        >Next: Front Matter →</button>
                       </div>
                     </div>
                   </SectionCard>
@@ -1488,6 +1639,16 @@ export default function Workspace({
                           onChange={e => setFrontMatter(f => ({ ...f, dedication: e.target.value }))}
                         />
                       </div>
+                      <div style={{ marginTop: "1.25rem", display: "flex", justifyContent: "space-between" }}>
+                        <button
+                          onClick={() => jumpToStep("scene-break")}
+                          style={{ background: "rgba(255,255,255,0.06)", color: "#cbd5e1", border: "1px solid rgba(255,255,255,0.1)", padding: "0.5rem 1rem", borderRadius: "6px", fontSize: "0.82rem", fontWeight: 600, cursor: "pointer" }}
+                        >← Previous: Breaks</button>
+                        <button
+                          onClick={() => jumpToStep("back-matter")}
+                          style={{ background: "#e08e6d", color: "#fff", border: "none", padding: "0.5rem 1rem", borderRadius: "6px", fontSize: "0.85rem", fontWeight: 700, cursor: "pointer" }}
+                        >Next: Back Matter →</button>
+                      </div>
                     </div>
                   </SectionCard>
 
@@ -1511,6 +1672,16 @@ export default function Workspace({
                           value={backMatter.acknowledgements}
                           onChange={e => setBackMatter(b => ({ ...b, acknowledgements: e.target.value }))}
                         />
+                      </div>
+                      <div style={{ marginTop: "1.25rem", display: "flex", justifyContent: "space-between" }}>
+                        <button
+                          onClick={() => jumpToStep("front-matter")}
+                          style={{ background: "rgba(255,255,255,0.06)", color: "#cbd5e1", border: "1px solid rgba(255,255,255,0.1)", padding: "0.5rem 1rem", borderRadius: "6px", fontSize: "0.82rem", fontWeight: 600, cursor: "pointer" }}
+                        >← Previous: Front Matter</button>
+                        <button
+                          onClick={() => jumpToStep("consistency")}
+                          style={{ background: "#e08e6d", color: "#fff", border: "none", padding: "0.5rem 1rem", borderRadius: "6px", fontSize: "0.85rem", fontWeight: 700, cursor: "pointer" }}
+                        >Next: Consistency →</button>
                       </div>
                     </div>
                   </SectionCard>
@@ -1557,6 +1728,16 @@ export default function Workspace({
                           ))}
                         </div>
                       )}
+                      <div style={{ marginTop: "1.25rem", display: "flex", justifyContent: "space-between" }}>
+                        <button
+                          onClick={() => jumpToStep("back-matter")}
+                          style={{ background: "rgba(255,255,255,0.06)", color: "#cbd5e1", border: "1px solid rgba(255,255,255,0.1)", padding: "0.5rem 1rem", borderRadius: "6px", fontSize: "0.82rem", fontWeight: 600, cursor: "pointer" }}
+                        >← Previous: Back Matter</button>
+                        <button
+                          onClick={() => jumpToStep("word-count")}
+                          style={{ background: "#e08e6d", color: "#fff", border: "none", padding: "0.5rem 1rem", borderRadius: "6px", fontSize: "0.85rem", fontWeight: 700, cursor: "pointer" }}
+                        >Next: Final Reports →</button>
+                      </div>
                     </div>
                   </SectionCard>
 
@@ -1597,6 +1778,16 @@ export default function Workspace({
                           })}
                         </div>
                       )}
+                      <div style={{ marginTop: "1.25rem", display: "flex", justifyContent: "space-between" }}>
+                        <button
+                          onClick={() => jumpToStep("consistency")}
+                          style={{ background: "rgba(255,255,255,0.06)", color: "#cbd5e1", border: "1px solid rgba(255,255,255,0.1)", padding: "0.5rem 1rem", borderRadius: "6px", fontSize: "0.82rem", fontWeight: 600, cursor: "pointer" }}
+                        >← Previous: Consistency</button>
+                        <button
+                          onClick={() => jumpToStep("export-packages")}
+                          style={{ background: "linear-gradient(135deg, #9f8ad0, #c084fc)", color: "#fff", border: "none", padding: "0.5rem 1.25rem", borderRadius: "6px", fontSize: "0.85rem", fontWeight: 700, cursor: "pointer" }}
+                        >Proceed to Export ✦</button>
+                      </div>
                     </div>
                   </SectionCard>
 
