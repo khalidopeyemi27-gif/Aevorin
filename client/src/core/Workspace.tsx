@@ -1342,22 +1342,27 @@ export default function Workspace({
 
                     {/* Arrowhead & Expand/Collapse Pill */}
                     <div
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleSection(id);
+                      }}
                       style={{
-                        padding: "0.25rem 0.55rem",
+                        padding: "0.25rem 0.6rem",
                         borderRadius: "6px",
-                        background: isOpen ? "rgba(224,142,109,0.12)" : "rgba(255,255,255,0.05)",
-                        border: isOpen ? "1px solid rgba(224,142,109,0.3)" : "1px solid rgba(255,255,255,0.08)",
-                        color: isOpen ? "#e08e6d" : "rgba(255,255,255,0.4)",
-                        fontSize: "0.72rem",
+                        background: isOpen ? "rgba(224,142,109,0.15)" : "rgba(255,255,255,0.06)",
+                        border: isOpen ? "1px solid rgba(224,142,109,0.35)" : "1px solid rgba(255,255,255,0.1)",
+                        color: isOpen ? "#e08e6d" : "rgba(255,255,255,0.6)",
+                        fontSize: "0.75rem",
                         fontWeight: 700,
                         display: "flex",
                         alignItems: "center",
                         gap: "0.35rem",
+                        cursor: "pointer",
                         transition: "all 0.2s ease"
                       }}
                     >
                       <span>{isOpen ? "Hide" : "Open"}</span>
-                      <span style={{ transform: isOpen ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s ease", display: "inline-block" }}>▼</span>
+                      <span style={{ transform: isOpen ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s ease", display: "inline-block", fontSize: "0.65rem" }}>▼</span>
                     </div>
                   </button>
                   {isOpen && (
