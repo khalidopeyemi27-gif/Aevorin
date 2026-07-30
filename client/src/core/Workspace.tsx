@@ -154,6 +154,86 @@ function CheckItem({ done, label }: { done: boolean; label: string }) {
   );
 }
 
+interface CompilerSectionCardProps {
+  id: string;
+  icon: string;
+  title: string;
+  isOpen: boolean;
+  isSelected: boolean;
+  compilerViewMode: "tab" | "all";
+  onToggle: () => void;
+  children: React.ReactNode;
+}
+
+function SectionCard({ id, icon, title, isOpen, isSelected, compilerViewMode, onToggle, children }: CompilerSectionCardProps) {
+  if (compilerViewMode === "tab" && !isSelected) {
+    return null;
+  }
+
+  return (
+    <div
+      id={`compiler-step-${id}`}
+      style={{
+        background: "rgba(255,255,255,0.025)",
+        border: isSelected ? "1px solid rgba(224,142,109,0.5)" : isOpen ? "1px solid rgba(159,138,208,0.25)" : "1px solid rgba(255,255,255,0.06)",
+        borderRadius: "12px",
+        overflow: "hidden",
+        transition: "all 0.2s ease",
+        boxShadow: isSelected ? "0 4px 20px rgba(224,142,109,0.15)" : "none"
+      }}
+    >
+      <button
+        type="button"
+        onClick={onToggle}
+        style={{
+          width: "100%",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          padding: "1.1rem 1.25rem",
+          background: isSelected ? "rgba(224,142,109,0.06)" : "transparent",
+          border: "none",
+          cursor: "pointer",
+          gap: "0.75rem",
+          userSelect: "none",
+          outline: "none",
+          minHeight: "48px"
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+          <span style={{ fontSize: "1.1rem" }}>{icon}</span>
+          <span style={{ fontSize: "0.95rem", fontWeight: 700, color: isSelected ? "#e08e6d" : isOpen ? "#fff" : "#94a3b8" }}>{title}</span>
+        </div>
+
+        {/* Arrowhead & Expand/Collapse Pill */}
+        <div
+          style={{
+            padding: "0.3rem 0.65rem",
+            borderRadius: "6px",
+            background: isOpen ? "rgba(224,142,109,0.15)" : "rgba(255,255,255,0.06)",
+            border: isOpen ? "1px solid rgba(224,142,109,0.35)" : "1px solid rgba(255,255,255,0.1)",
+            color: isOpen ? "#e08e6d" : "rgba(255,255,255,0.6)",
+            fontSize: "0.75rem",
+            fontWeight: 700,
+            display: "flex",
+            alignItems: "center",
+            gap: "0.35rem",
+            transition: "all 0.2s ease"
+          }}
+        >
+          <span>{isOpen ? "Hide" : "Open"}</span>
+          <span style={{ transform: isOpen ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s ease", display: "inline-block", fontSize: "0.65rem" }}>▼</span>
+        </div>
+      </button>
+      {isOpen && (
+        <div style={{ padding: "0 1.25rem 1.25rem", borderTop: "1px solid rgba(255,255,255,0.05)" }}>
+          {children}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function Workspace({
   project,
   onBackToDashboard,
@@ -1295,80 +1375,23 @@ export default function Workspace({
               setOpenCompilerSections(none);
             };
 
-            const SectionCard = ({ id, icon, title, children }: { id: string; icon: string; title: string; children: React.ReactNode }) => {
-              const isOpen = openCompilerSections[id] !== false;
-              const isSelected = activeCompilerStep === id;
-
-              if (compilerViewMode === "tab" && !isSelected) {
-                return null;
-              }
-
-              return (
-                <div
-                  id={`compiler-step-${id}`}
-                  style={{
-                    background: "rgba(255,255,255,0.025)",
-                    border: isSelected ? "1px solid rgba(224,142,109,0.5)" : isOpen ? "1px solid rgba(159,138,208,0.25)" : "1px solid rgba(255,255,255,0.06)",
-                    borderRadius: "12px",
-                    overflow: "hidden",
-                    transition: "all 0.2s ease",
-                    boxShadow: isSelected ? "0 4px 20px rgba(224,142,109,0.15)" : "none"
-                  }}
-                >
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setActiveCompilerStep(id);
-                      toggleSection(id);
-                    }}
-                    style={{
-                      width: "100%",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      padding: "1.1rem 1.25rem",
-                      background: isSelected ? "rgba(224,142,109,0.06)" : "transparent",
-                      border: "none",
-                      cursor: "pointer",
-                      gap: "0.75rem",
-                      userSelect: "none",
-                      outline: "none",
-                      minHeight: "48px"
-                    }}
-                  >
-                    <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-                      <span style={{ fontSize: "1.1rem" }}>{icon}</span>
-                      <span style={{ fontSize: "0.95rem", fontWeight: 700, color: isSelected ? "#e08e6d" : isOpen ? "#fff" : "#94a3b8" }}>{title}</span>
-                    </div>
-
-                    {/* Arrowhead & Expand/Collapse Pill */}
-                    <div
-                      style={{
-                        padding: "0.3rem 0.65rem",
-                        borderRadius: "6px",
-                        background: isOpen ? "rgba(224,142,109,0.15)" : "rgba(255,255,255,0.06)",
-                        border: isOpen ? "1px solid rgba(224,142,109,0.35)" : "1px solid rgba(255,255,255,0.1)",
-                        color: isOpen ? "#e08e6d" : "rgba(255,255,255,0.6)",
-                        fontSize: "0.75rem",
-                        fontWeight: 700,
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "0.35rem",
-                        transition: "all 0.2s ease"
-                      }}
-                    >
-                      <span>{isOpen ? "Hide" : "Open"}</span>
-                      <span style={{ transform: isOpen ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s ease", display: "inline-block", fontSize: "0.65rem" }}>▼</span>
-                    </div>
-                  </button>
-                  {isOpen && (
-                    <div style={{ padding: "0 1.25rem 1.25rem", borderTop: "1px solid rgba(255,255,255,0.05)" }}>
-                      {children}
-                    </div>
-                  )}
-                </div>
-              );
-            };
+            const renderCard = (id: string, icon: string, title: string, children: React.ReactNode) => (
+              <SectionCard
+                key={id}
+                id={id}
+                icon={icon}
+                title={title}
+                isOpen={openCompilerSections[id] !== false}
+                isSelected={activeCompilerStep === id}
+                compilerViewMode={compilerViewMode}
+                onToggle={() => {
+                  setActiveCompilerStep(id);
+                  toggleSection(id);
+                }}
+              >
+                {children}
+              </SectionCard>
+            );
 
             const rowStyle: React.CSSProperties = { display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: "0.85rem" };
             const labelStyle: React.CSSProperties = { fontSize: "0.82rem", color: "rgba(255,255,255,0.55)", fontWeight: 500 };
@@ -1491,7 +1514,7 @@ export default function Workspace({
                 <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem", marginBottom: "1.5rem" }}>
 
                   {/* 1. Formatting Engine */}
-                  <SectionCard id="formatting" icon="🖋" title="Step 1: Formatting Engine">
+                  {renderCard("formatting", "🖋", "Step 1: Formatting Engine",
                     <div style={{ display: "flex", flexDirection: "column" }}>
                       <div style={rowStyle}>
                         <span style={labelStyle}>Font Family</span>
@@ -1525,86 +1548,88 @@ export default function Workspace({
                         >Next: Chapter Ordering →</button>
                       </div>
                     </div>
-                  </SectionCard>
+                  )}
 
                   {/* 2. Chapter Ordering */}
-                  <SectionCard id="chapter-ordering" icon="📋" title="Step 2: Chapter Ordering">
-                    {orderedChapters.length === 0 ? (
-                      <p style={{ color: "rgba(255,255,255,0.3)", fontSize: "0.82rem", paddingTop: "0.85rem" }}>No chapters yet.</p>
-                    ) : (
-                      <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem", paddingTop: "0.85rem" }}>
-                        {orderedChapters.map((ch: any, idx: number) => {
-                          const isExpanded = expandedPreviewChapterId === ch.id;
-                          const chScenes = safeScenes.filter((s: any) => s.chapter_id === ch.id);
-                          const chWords = chScenes.reduce((acc: number, s: any) => acc + (s.word_count || 0), 0);
+                  {renderCard("chapter-ordering", "📋", "Step 2: Chapter Ordering",
+                    <div>
+                      {orderedChapters.length === 0 ? (
+                        <p style={{ color: "rgba(255,255,255,0.3)", fontSize: "0.82rem", paddingTop: "0.85rem" }}>No chapters yet.</p>
+                      ) : (
+                        <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem", paddingTop: "0.85rem" }}>
+                          {orderedChapters.map((ch: any, idx: number) => {
+                            const isExpanded = expandedPreviewChapterId === ch.id;
+                            const chScenes = safeScenes.filter((s: any) => s.chapter_id === ch.id);
+                            const chWords = chScenes.reduce((acc: number, s: any) => acc + (s.word_count || 0), 0);
 
-                          return (
-                            <div key={ch.id} style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: "8px", overflow: "hidden" }}>
-                              <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", padding: "0.6rem 0.85rem" }}>
-                                <span style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.3)", width: "18px", textAlign: "center" }}>{idx + 1}</span>
-                                <span
-                                  onClick={() => setExpandedPreviewChapterId(isExpanded ? null : ch.id)}
-                                  style={{ flex: 1, fontSize: "0.85rem", color: "#fff", fontWeight: 500, cursor: "pointer" }}
-                                >
-                                  {ch.title || `Chapter ${idx + 1}`}
-                                  <span style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.35)", marginLeft: "0.6rem" }}>
-                                    ({chScenes.length} scenes · {chWords.toLocaleString()} w)
+                            return (
+                              <div key={ch.id} style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: "8px", overflow: "hidden" }}>
+                                <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", padding: "0.6rem 0.85rem" }}>
+                                  <span style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.3)", width: "18px", textAlign: "center" }}>{idx + 1}</span>
+                                  <span
+                                    onClick={() => setExpandedPreviewChapterId(isExpanded ? null : ch.id)}
+                                    style={{ flex: 1, fontSize: "0.85rem", color: "#fff", fontWeight: 500, cursor: "pointer" }}
+                                  >
+                                    {ch.title || `Chapter ${idx + 1}`}
+                                    <span style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.35)", marginLeft: "0.6rem" }}>
+                                      ({chScenes.length} scenes · {chWords.toLocaleString()} w)
+                                    </span>
                                   </span>
-                                </span>
-                                <button
-                                  onClick={() => setExpandedPreviewChapterId(isExpanded ? null : ch.id)}
-                                  style={{ background: "none", border: "none", color: "#9f8ad0", cursor: "pointer", fontSize: "0.72rem", fontWeight: 600 }}
-                                >
-                                  {isExpanded ? "Hide Scenes ▲" : "View Scenes ▼"}
-                                </button>
-                                <div style={{ display: "flex", gap: "0.3rem" }}>
                                   <button
-                                    disabled={idx === 0}
-                                    onClick={() => { const arr = [...orderedChapters]; [arr[idx-1], arr[idx]] = [arr[idx], arr[idx-1]]; setCompilerChapterOrdering(arr); }}
-                                    style={{ background: "none", border: "none", color: idx === 0 ? "rgba(255,255,255,0.15)" : "rgba(255,255,255,0.5)", cursor: idx === 0 ? "default" : "pointer", fontSize: "0.85rem", padding: "0.2rem 0.4rem" }}
-                                  >▲</button>
-                                  <button
-                                    disabled={idx === orderedChapters.length - 1}
-                                    onClick={() => { const arr = [...orderedChapters]; [arr[idx], arr[idx+1]] = [arr[idx+1], arr[idx]]; setCompilerChapterOrdering(arr); }}
-                                    style={{ background: "none", border: "none", color: idx === orderedChapters.length - 1 ? "rgba(255,255,255,0.15)" : "rgba(255,255,255,0.5)", cursor: idx === orderedChapters.length - 1 ? "default" : "pointer", fontSize: "0.85rem", padding: "0.2rem 0.4rem" }}
-                                  >▼</button>
+                                    onClick={() => setExpandedPreviewChapterId(isExpanded ? null : ch.id)}
+                                    style={{ background: "none", border: "none", color: "#9f8ad0", cursor: "pointer", fontSize: "0.72rem", fontWeight: 600 }}
+                                  >
+                                    {isExpanded ? "Hide Scenes ▲" : "View Scenes ▼"}
+                                  </button>
+                                  <div style={{ display: "flex", gap: "0.3rem" }}>
+                                    <button
+                                      disabled={idx === 0}
+                                      onClick={() => { const arr = [...orderedChapters]; [arr[idx-1], arr[idx]] = [arr[idx], arr[idx-1]]; setCompilerChapterOrdering(arr); }}
+                                      style={{ background: "none", border: "none", color: idx === 0 ? "rgba(255,255,255,0.15)" : "rgba(255,255,255,0.5)", cursor: idx === 0 ? "default" : "pointer", fontSize: "0.85rem", padding: "0.2rem 0.4rem" }}
+                                    >▲</button>
+                                    <button
+                                      disabled={idx === orderedChapters.length - 1}
+                                      onClick={() => { const arr = [...orderedChapters]; [arr[idx], arr[idx+1]] = [arr[idx+1], arr[idx]]; setCompilerChapterOrdering(arr); }}
+                                      style={{ background: "none", border: "none", color: idx === orderedChapters.length - 1 ? "rgba(255,255,255,0.15)" : "rgba(255,255,255,0.5)", cursor: idx === orderedChapters.length - 1 ? "default" : "pointer", fontSize: "0.85rem", padding: "0.2rem 0.4rem" }}
+                                    >▼</button>
+                                  </div>
                                 </div>
-                              </div>
 
-                              {/* Expanded Chapter Scenes List */}
-                              {isExpanded && (
-                                <div style={{ padding: "0.6rem 1rem 0.85rem 2.2rem", background: "rgba(0,0,0,0.2)", borderTop: "1px solid rgba(255,255,255,0.04)" }}>
-                                  {chScenes.length === 0 ? (
-                                    <span style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.3)", fontStyle: "italic" }}>No scenes in this chapter</span>
-                                  ) : (
-                                    chScenes.map((sc: any, sIdx: number) => (
-                                      <div key={sc.id} style={{ fontSize: "0.78rem", color: "rgba(255,255,255,0.7)", padding: "0.3rem 0", display: "flex", justifyContent: "space-between" }}>
-                                        <span>📄 Scene {sIdx + 1}: {sc.title || "Untitled Scene"}</span>
-                                        <span style={{ color: "rgba(255,255,255,0.35)" }}>{(sc.word_count || 0).toLocaleString()} w</span>
-                                      </div>
-                                    ))
-                                  )}
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
+                                {/* Expanded Chapter Scenes List */}
+                                {isExpanded && (
+                                  <div style={{ padding: "0.6rem 1rem 0.85rem 2.2rem", background: "rgba(0,0,0,0.2)", borderTop: "1px solid rgba(255,255,255,0.04)" }}>
+                                    {chScenes.length === 0 ? (
+                                      <span style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.3)", fontStyle: "italic" }}>No scenes in this chapter</span>
+                                    ) : (
+                                      chScenes.map((sc: any, sIdx: number) => (
+                                        <div key={sc.id} style={{ fontSize: "0.78rem", color: "rgba(255,255,255,0.7)", padding: "0.3rem 0", display: "flex", justifyContent: "space-between" }}>
+                                          <span>📄 Scene {sIdx + 1}: {sc.title || "Untitled Scene"}</span>
+                                          <span style={{ color: "rgba(255,255,255,0.35)" }}>{(sc.word_count || 0).toLocaleString()} w</span>
+                                        </div>
+                                      ))
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                      <div style={{ marginTop: "1.25rem", display: "flex", justifyContent: "space-between" }}>
+                        <button
+                          onClick={() => jumpToStep("formatting")}
+                          style={{ background: "rgba(255,255,255,0.06)", color: "#cbd5e1", border: "1px solid rgba(255,255,255,0.1)", padding: "0.5rem 1rem", borderRadius: "6px", fontSize: "0.82rem", fontWeight: 600, cursor: "pointer" }}
+                        >← Previous: Formatting</button>
+                        <button
+                          onClick={() => jumpToStep("scene-break")}
+                          style={{ background: "#e08e6d", color: "#fff", border: "none", padding: "0.5rem 1rem", borderRadius: "6px", fontSize: "0.85rem", fontWeight: 700, cursor: "pointer" }}
+                        >Next: Scene Breaks →</button>
                       </div>
-                    )}
-                    <div style={{ marginTop: "1.25rem", display: "flex", justifyContent: "space-between" }}>
-                      <button
-                        onClick={() => jumpToStep("formatting")}
-                        style={{ background: "rgba(255,255,255,0.06)", color: "#cbd5e1", border: "1px solid rgba(255,255,255,0.1)", padding: "0.5rem 1rem", borderRadius: "6px", fontSize: "0.82rem", fontWeight: 600, cursor: "pointer" }}
-                      >← Previous: Formatting</button>
-                      <button
-                        onClick={() => jumpToStep("scene-break")}
-                        style={{ background: "#e08e6d", color: "#fff", border: "none", padding: "0.5rem 1rem", borderRadius: "6px", fontSize: "0.85rem", fontWeight: 700, cursor: "pointer" }}
-                      >Next: Scene Breaks →</button>
                     </div>
-                  </SectionCard>
+                  )}
 
                   {/* 3. Scene Break Detection */}
-                  <SectionCard id="scene-break" icon="✂️" title="Step 3: Scene Break Detection">
+                  {renderCard("scene-break", "✂️", "Step 3: Scene Break Detection",
                     <div style={{ display: "flex", flexDirection: "column" }}>
                       <div style={rowStyle}>
                         <span style={labelStyle}>Break Symbol</span>
@@ -1636,10 +1661,10 @@ export default function Workspace({
                         >Next: Front Matter →</button>
                       </div>
                     </div>
-                  </SectionCard>
+                  )}
 
                   {/* 4. Front Matter Generator */}
-                  <SectionCard id="front-matter" icon="📰" title="Step 4: Front Matter">
+                  {renderCard("front-matter", "📰", "Step 4: Front Matter",
                     <div style={{ paddingTop: "0.85rem", display: "flex", flexDirection: "column", gap: "0.6rem" }}>
                       {[
                         { key: "title" as const, label: "Title" },
@@ -1676,10 +1701,10 @@ export default function Workspace({
                         >Next: Back Matter →</button>
                       </div>
                     </div>
-                  </SectionCard>
+                  )}
 
                   {/* 5. Back Matter Generator */}
-                  <SectionCard id="back-matter" icon="📎" title="Step 5: Back Matter">
+                  {renderCard("back-matter", "📎", "Step 5: Back Matter",
                     <div style={{ paddingTop: "0.85rem", display: "flex", flexDirection: "column", gap: "0.6rem" }}>
                       <div>
                         <div style={labelStyle}>About the Author</div>
@@ -1710,10 +1735,10 @@ export default function Workspace({
                         >Next: Consistency →</button>
                       </div>
                     </div>
-                  </SectionCard>
+                  )}
 
                   {/* 6. Consistency Checks */}
-                  <SectionCard id="consistency" icon="🔍" title="Step 6: Consistency Checks">
+                  {renderCard("consistency", "🔍", "Step 6: Consistency Checks",
                     <div style={{ paddingTop: "0.85rem" }}>
                       <button
                         onClick={() => {
@@ -1765,10 +1790,10 @@ export default function Workspace({
                         >Next: Final Reports →</button>
                       </div>
                     </div>
-                  </SectionCard>
+                  )}
 
                   {/* 7. Word Count Reports */}
-                  <SectionCard id="word-count" icon="📊" title="Step 7: Final Reports">
+                  {renderCard("word-count", "📊", "Step 7: Final Reports",
                     <div style={{ paddingTop: "0.85rem" }}>
                       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "0.5rem", marginBottom: "1rem" }}>
                         {[
@@ -1815,10 +1840,10 @@ export default function Workspace({
                         >Proceed to Export ✦</button>
                       </div>
                     </div>
-                  </SectionCard>
+                  )}
 
                   {/* 8. Export Packages */}
-                  <SectionCard id="export-packages" icon="📦" title="Step 8: Export Packages">
+                  {renderCard("export-packages", "📦", "Step 8: Export Packages",
                     <div style={{ paddingTop: "0.85rem" }}>
                       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.65rem", marginBottom: "1.25rem" }}>
                         {([
@@ -1911,7 +1936,7 @@ export default function Workspace({
                         </div>
                       )}
                     </div>
-                  </SectionCard>
+                  )}
 
                 </div>
 
