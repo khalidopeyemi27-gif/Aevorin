@@ -1315,39 +1315,43 @@ export default function Workspace({
                     boxShadow: isSelected ? "0 4px 20px rgba(224,142,109,0.15)" : "none"
                   }}
                 >
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => {
                       setActiveCompilerStep(id);
                       toggleSection(id);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        setActiveCompilerStep(id);
+                        toggleSection(id);
+                      }
                     }}
                     style={{
                       width: "100%",
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "space-between",
-                      padding: "1rem 1.25rem",
+                      padding: "1.1rem 1.25rem",
                       background: isSelected ? "rgba(224,142,109,0.06)" : "none",
-                      border: "none",
                       cursor: "pointer",
                       gap: "0.75rem",
-                      userSelect: "none"
+                      userSelect: "none",
+                      touchAction: "manipulation",
+                      minHeight: "48px"
                     }}
                   >
-                    <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", pointerEvents: "none" }}>
                       <span style={{ fontSize: "1.1rem" }}>{icon}</span>
                       <span style={{ fontSize: "0.95rem", fontWeight: 700, color: isSelected ? "#e08e6d" : isOpen ? "#fff" : "#94a3b8" }}>{title}</span>
                     </div>
 
                     {/* Arrowhead & Expand/Collapse Pill */}
                     <div
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        toggleSection(id);
-                      }}
                       style={{
-                        padding: "0.25rem 0.6rem",
+                        padding: "0.3rem 0.65rem",
                         borderRadius: "6px",
                         background: isOpen ? "rgba(224,142,109,0.15)" : "rgba(255,255,255,0.06)",
                         border: isOpen ? "1px solid rgba(224,142,109,0.35)" : "1px solid rgba(255,255,255,0.1)",
@@ -1357,14 +1361,14 @@ export default function Workspace({
                         display: "flex",
                         alignItems: "center",
                         gap: "0.35rem",
-                        cursor: "pointer",
+                        pointerEvents: "none",
                         transition: "all 0.2s ease"
                       }}
                     >
                       <span>{isOpen ? "Hide" : "Open"}</span>
                       <span style={{ transform: isOpen ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s ease", display: "inline-block", fontSize: "0.65rem" }}>▼</span>
                     </div>
-                  </button>
+                  </div>
                   {isOpen && (
                     <div style={{ padding: "0 1.25rem 1.25rem", borderTop: "1px solid rgba(255,255,255,0.05)" }}>
                       {children}
