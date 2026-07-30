@@ -1357,10 +1357,26 @@ export default function Workspace({
             };
 
             const toggleSection = (id: string) => {
+              const cardEl = document.getElementById(`compiler-step-${id}`);
+              const initialTop = cardEl ? cardEl.getBoundingClientRect().top : null;
+
               setOpenCompilerSections(prev => {
                 const isCurrentlyOpen = prev[id] !== false;
                 return { ...prev, [id]: !isCurrentlyOpen };
               });
+
+              if (cardEl && initialTop !== null) {
+                requestAnimationFrame(() => {
+                  const currentTop = cardEl.getBoundingClientRect().top;
+                  const diff = currentTop - initialTop;
+                  if (Math.abs(diff) > 2) {
+                    const container = cardEl.closest(".compiler-scroll-container") || cardEl.closest('[style*="overflow"]') || document.documentElement;
+                    if (container instanceof HTMLElement) {
+                      container.scrollTop += diff;
+                    }
+                  }
+                });
+              }
             };
 
             const expandAllSections = () => {
@@ -1399,7 +1415,7 @@ export default function Workspace({
             const textareaStyle: React.CSSProperties = { width: "100%", background: "#141414", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "8px", color: "#fff", fontSize: "0.82rem", padding: "0.6rem 0.75rem", resize: "vertical" as const, marginTop: "0.6rem", minHeight: "70px" };
 
             return (
-              <div style={{ flex: 1, overflowY: "auto", background: "#1e1e1e", minHeight: "100%", padding: "1.5rem" }}>
+              <div className="compiler-scroll-container" style={{ flex: 1, overflowY: "auto", background: "#1e1e1e", minHeight: "100%", padding: "1.5rem" }}>
 
                 {/* Header & Preview CTA */}
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "1.25rem" }}>
