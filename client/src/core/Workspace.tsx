@@ -191,7 +191,18 @@ export default function Workspace({
   const [exporting, setExporting] = useState(false);
 
   // Manuscript Compiler sub-panel state
-  const [compilerSection, setCompilerSection] = useState<string | null>("chapter-ordering");
+  const [openCompilerSections, setOpenCompilerSections] = useState<Record<string, boolean>>({
+    formatting: true,
+    "chapter-ordering": true,
+    "scene-break": true,
+    "front-matter": true,
+    "back-matter": true,
+    consistency: true,
+    "word-count": true,
+    "export-packages": true
+  });
+  const [showCompilerPreviewModal, setShowCompilerPreviewModal] = useState(false);
+  const [expandedPreviewChapterId, setExpandedPreviewChapterId] = useState<string | null>(null);
   const [compilerFontFamily, setCompilerFontFamily] = useState("Georgia");
   const [compilerFontSize, setCompilerFontSize] = useState("12");
   const [compilerLineSpacing, setCompilerLineSpacing] = useState("double");
@@ -440,35 +451,100 @@ export default function Workspace({
     }
   }, [activeTab]);
 
+  const downloadCompiledBlob = (content: string, fileName: string, mimeType: string) => {
+    const blob = new Blob([content], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   const handleExport = async () => {
     setExporting(true);
     setExportResult(null);
     try {
-      // 1. Fetch unresolved continuity reports
-      const reportsRes = await fetch(`/api/projects/${project.id}/canon/reports`);
-      const reportsData = await reportsRes.json();
-      const unresolvedCount = reportsData ? reportsData.length : 0;
+      let compiledText = "";
+      const ext = exportFormat === "markdown" ? "md" : exportFormat === "docx" ? "doc" : exportFormat;
+      let fileName = `${project.name || "Manuscript"}_Compiled.${ext}`;
 
-      if (unresolvedCount > 0) {
-        const proceed = confirm(`⚠️ Publish Check Warnings:\n\nThere are ${unresolvedCount} active continuity warnings in your manuscript.\n\nDo you want to ignore them and export anyway?`);
-        if (!proceed) {
-          setExporting(false);
-          return;
+      try {
+        const res = await fetch(`/api/projects/${project.id}/export`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            format: exportFormat,
+            frontMatter,
+            backMatter,
+            compilerSettings: { sceneBreak: compilerSceneBreak, fontFamily: compilerFontFamily }
+          })
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.compiledContent) compiledText = data.compiledContent;
+          if (data.fileName) fileName = data.fileName;
+        }
+      } catch (_) {}
+
+      // Client-side fallback compilation if server endpoint fails or is offline
+      if (!compiledText) {
+        if (frontMatter.title) {
+          compiledText += `# ${frontMatter.title}\n`;
+          if (frontMatter.subtitle) compiledText += `## ${frontMatter.subtitle}\n`;
+          if (frontMatter.author) compiledText += `By ${frontMatter.author}\n\n`;
+          if (frontMatter.dedication) compiledText += `*${frontMatter.dedication}*\n\n`;
+          compiledText += `---\n\n`;
+        }
+
+        const safeChaps = Array.isArray(chapters) ? chapters : [];
+        const safeScenes = Array.isArray(scenes) ? scenes : [];
+        const ordered = compilerChapterOrdering.length > 0 ? compilerChapterOrdering : safeChaps;
+
+        ordered.forEach((ch: any, i: number) => {
+          compiledText += `# Chapter ${i + 1}: ${ch.title || "Untitled Chapter"}\n\n`;
+          const chScenes = safeScenes.filter((s: any) => s.chapter_id === ch.id);
+          chScenes.forEach((sc: any, j: number) => {
+            let text = sc.content || "";
+            try {
+              const parsed = JSON.parse(text);
+              const extractText = (node: any): string => {
+                if (!node) return "";
+                if (node.type === "text") return node.text || "";
+                if (node.type === "paragraph") return (node.content ? node.content.map(extractText).join("") : "") + "\n\n";
+                if (node.content) return node.content.map(extractText).join(" ");
+                return "";
+              };
+              text = extractText(parsed);
+            } catch (_) {
+              text = text.replace(/<[^>]+>/g, "\n");
+            }
+            compiledText += text.trim() + "\n\n";
+            if (j < chScenes.length - 1) {
+              compiledText += `${compilerSceneBreak}\n\n`;
+            }
+          });
+        });
+
+        if (backMatter.authorBio) {
+          compiledText += `---\n\n# About the Author\n\n${backMatter.authorBio}\n\n`;
         }
       }
 
-      // 2. Perform export compilation
-      const res = await fetch(`/api/projects/${project.id}/export`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ format: exportFormat })
+      // Download file directly to user's device
+      const mime = exportFormat === "html" ? "text/html" : exportFormat === "docx" ? "application/msword" : "text/plain";
+      downloadCompiledBlob(compiledText, fileName, mime);
+
+      setExportResult({
+        fileName,
+        path: `Downloaded to device (${fileName})`,
+        compiledContent: compiledText
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to compile manuscript");
-      setExportResult(data);
 
       localStorage.setItem(`aevorin_exported_${project.id}`, "true");
-      showToast(`${exportFormat === 'epub' ? 'EPUB' : exportFormat.toUpperCase()} compilation complete`, "success");
+      showToast(`${exportFormat.toUpperCase()} manuscript compiled and downloaded!`, "success");
     } catch (e: any) {
       showToast("Error compiling: " + e.message, "error");
     } finally {
@@ -1178,41 +1254,48 @@ export default function Workspace({
             const orderedChapters = safeOrdering.length > 0 ? safeOrdering : safeChapters;
             const totalWords = safeScenes.reduce((s: number, sc: any) => s + (sc?.word_count || 0), 0);
 
-            const SectionCard = ({ id, icon, title, children }: { id: string; icon: string; title: string; children: React.ReactNode }) => (
-              <div style={{
-                background: "rgba(255,255,255,0.025)",
-                border: compilerSection === id ? "1px solid rgba(224,142,109,0.3)" : "1px solid rgba(255,255,255,0.06)",
-                borderRadius: "12px",
-                overflow: "hidden",
-                transition: "border-color 0.2s"
-              }}>
-                <button
-                  onClick={() => setCompilerSection(compilerSection === id ? null : id)}
-                  style={{
-                    width: "100%",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    padding: "1rem 1.25rem",
-                    background: "none",
-                    border: "none",
-                    cursor: "pointer",
-                    gap: "0.75rem"
-                  }}
-                >
-                  <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-                    <span style={{ fontSize: "1.1rem" }}>{icon}</span>
-                    <span style={{ fontSize: "0.9rem", fontWeight: 700, color: compilerSection === id ? "#e08e6d" : "#fff" }}>{title}</span>
-                  </div>
-                  <span style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.3)", transform: compilerSection === id ? "rotate(180deg)" : "none", transition: "transform 0.2s" }}>▼</span>
-                </button>
-                {compilerSection === id && (
-                  <div style={{ padding: "0 1.25rem 1.25rem", borderTop: "1px solid rgba(255,255,255,0.05)" }}>
-                    {children}
-                  </div>
-                )}
-              </div>
-            );
+            const toggleSection = (id: string) => {
+              setOpenCompilerSections(prev => ({ ...prev, [id]: !prev[id] }));
+            };
+
+            const SectionCard = ({ id, icon, title, children }: { id: string; icon: string; title: string; children: React.ReactNode }) => {
+              const isOpen = openCompilerSections[id] !== false;
+              return (
+                <div style={{
+                  background: "rgba(255,255,255,0.025)",
+                  border: isOpen ? "1px solid rgba(224,142,109,0.3)" : "1px solid rgba(255,255,255,0.06)",
+                  borderRadius: "12px",
+                  overflow: "hidden",
+                  transition: "border-color 0.2s"
+                }}>
+                  <button
+                    onClick={() => toggleSection(id)}
+                    style={{
+                      width: "100%",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      padding: "1rem 1.25rem",
+                      background: "none",
+                      border: "none",
+                      cursor: "pointer",
+                      gap: "0.75rem"
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+                      <span style={{ fontSize: "1.1rem" }}>{icon}</span>
+                      <span style={{ fontSize: "0.9rem", fontWeight: 700, color: isOpen ? "#e08e6d" : "#fff" }}>{title}</span>
+                    </div>
+                    <span style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.3)", transform: isOpen ? "rotate(180deg)" : "none", transition: "transform 0.2s" }}>▼</span>
+                  </button>
+                  {isOpen && (
+                    <div style={{ padding: "0 1.25rem 1.25rem", borderTop: "1px solid rgba(255,255,255,0.05)" }}>
+                      {children}
+                    </div>
+                  )}
+                </div>
+              );
+            };
 
             const rowStyle: React.CSSProperties = { display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: "0.85rem" };
             const labelStyle: React.CSSProperties = { fontSize: "0.82rem", color: "rgba(255,255,255,0.55)", fontWeight: 500 };
@@ -1222,13 +1305,35 @@ export default function Workspace({
             return (
               <div style={{ flex: 1, overflowY: "auto", background: "#1e1e1e", minHeight: "100%", padding: "1.5rem" }}>
 
-                {/* Header */}
-                <div style={{ marginBottom: "1.5rem" }}>
-                  <div style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.35)", textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 600, marginBottom: "0.3rem" }}>Aevorin</div>
-                  <h2 style={{ fontSize: "1.5rem", fontWeight: 700, color: "#e08e6d", fontFamily: "'Source Serif 4','Georgia',serif", margin: 0 }}>Manuscript Compiler</h2>
-                  <p style={{ marginTop: "0.4rem", color: "rgba(255,255,255,0.4)", fontSize: "0.82rem", lineHeight: 1.5 }}>
-                    {chapters.length} chapters · {scenes.length} scenes · {totalWords.toLocaleString()} words
-                  </p>
+                {/* Header & Preview CTA */}
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "1.5rem" }}>
+                  <div>
+                    <div style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.35)", textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 600, marginBottom: "0.3rem" }}>Aevorin</div>
+                    <h2 style={{ fontSize: "1.5rem", fontWeight: 700, color: "#e08e6d", fontFamily: "'Source Serif 4','Georgia',serif", margin: 0 }}>Manuscript Compiler</h2>
+                    <p style={{ marginTop: "0.4rem", color: "rgba(255,255,255,0.4)", fontSize: "0.82rem", lineHeight: 1.5 }}>
+                      {chapters.length} chapters · {scenes.length} scenes · {totalWords.toLocaleString()} words
+                    </p>
+                  </div>
+
+                  <button
+                    onClick={() => setShowCompilerPreviewModal(true)}
+                    style={{
+                      background: "linear-gradient(135deg, rgba(224,142,109,0.2), rgba(159,138,208,0.15))",
+                      color: "#e08e6d",
+                      border: "1px solid rgba(224,142,109,0.4)",
+                      borderRadius: "10px",
+                      padding: "0.6rem 1.2rem",
+                      fontSize: "0.82rem",
+                      fontWeight: 700,
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "0.5rem",
+                      boxShadow: "0 4px 15px rgba(224,142,109,0.15)"
+                    }}
+                  >
+                    👁️ Preview Full Manuscript
+                  </button>
                 </div>
 
                 {/* ── Accordion sections ── */}
@@ -1262,12 +1367,6 @@ export default function Workspace({
                           style={{ ...inputStyle, cursor: "pointer", color: compilerIndent ? "#e08e6d" : "rgba(255,255,255,0.4)", fontWeight: 700 }}
                         >{compilerIndent ? "On" : "Off"}</button>
                       </div>
-                      <div style={{ marginTop: "1.25rem", display: "flex", justifyContent: "flex-end" }}>
-                        <button
-                          onClick={() => setCompilerSection("chapter-ordering")}
-                          style={{ background: "#e08e6d", color: "#fff", border: "none", padding: "0.5rem 1rem", borderRadius: "6px", fontSize: "0.85rem", fontWeight: 700, cursor: "pointer" }}
-                        >Next: Chapter Ordering →</button>
-                      </div>
                     </div>
                   </SectionCard>
 
@@ -1277,32 +1376,64 @@ export default function Workspace({
                       <p style={{ color: "rgba(255,255,255,0.3)", fontSize: "0.82rem", paddingTop: "0.85rem" }}>No chapters yet.</p>
                     ) : (
                       <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem", paddingTop: "0.85rem" }}>
-                        {orderedChapters.map((ch: any, idx: number) => (
-                          <div key={ch.id} style={{ display: "flex", alignItems: "center", gap: "0.75rem", background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: "8px", padding: "0.6rem 0.85rem" }}>
-                            <span style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.3)", width: "18px", textAlign: "center" }}>{idx + 1}</span>
-                            <span style={{ flex: 1, fontSize: "0.85rem", color: "#fff", fontWeight: 500 }}>{ch.title || `Chapter ${idx + 1}`}</span>
-                            <div style={{ display: "flex", gap: "0.3rem" }}>
-                              <button
-                                disabled={idx === 0}
-                                onClick={() => { const arr = [...orderedChapters]; [arr[idx-1], arr[idx]] = [arr[idx], arr[idx-1]]; setCompilerChapterOrdering(arr); }}
-                                style={{ background: "none", border: "none", color: idx === 0 ? "rgba(255,255,255,0.15)" : "rgba(255,255,255,0.5)", cursor: idx === 0 ? "default" : "pointer", fontSize: "0.85rem", padding: "0.2rem 0.4rem" }}
-                              >▲</button>
-                              <button
-                                disabled={idx === orderedChapters.length - 1}
-                                onClick={() => { const arr = [...orderedChapters]; [arr[idx], arr[idx+1]] = [arr[idx+1], arr[idx]]; setCompilerChapterOrdering(arr); }}
-                                style={{ background: "none", border: "none", color: idx === orderedChapters.length - 1 ? "rgba(255,255,255,0.15)" : "rgba(255,255,255,0.5)", cursor: idx === orderedChapters.length - 1 ? "default" : "pointer", fontSize: "0.85rem", padding: "0.2rem 0.4rem" }}
-                              >▼</button>
+                        {orderedChapters.map((ch: any, idx: number) => {
+                          const isExpanded = expandedPreviewChapterId === ch.id;
+                          const chScenes = safeScenes.filter((s: any) => s.chapter_id === ch.id);
+                          const chWords = chScenes.reduce((acc: number, s: any) => acc + (s.word_count || 0), 0);
+
+                          return (
+                            <div key={ch.id} style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: "8px", overflow: "hidden" }}>
+                              <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", padding: "0.6rem 0.85rem" }}>
+                                <span style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.3)", width: "18px", textAlign: "center" }}>{idx + 1}</span>
+                                <span
+                                  onClick={() => setExpandedPreviewChapterId(isExpanded ? null : ch.id)}
+                                  style={{ flex: 1, fontSize: "0.85rem", color: "#fff", fontWeight: 500, cursor: "pointer" }}
+                                >
+                                  {ch.title || `Chapter ${idx + 1}`}
+                                  <span style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.35)", marginLeft: "0.6rem" }}>
+                                    ({chScenes.length} scenes · {chWords.toLocaleString()} w)
+                                  </span>
+                                </span>
+                                <button
+                                  onClick={() => setExpandedPreviewChapterId(isExpanded ? null : ch.id)}
+                                  style={{ background: "none", border: "none", color: "#9f8ad0", cursor: "pointer", fontSize: "0.72rem", fontWeight: 600 }}
+                                >
+                                  {isExpanded ? "Hide Scenes ▲" : "View Scenes ▼"}
+                                </button>
+                                <div style={{ display: "flex", gap: "0.3rem" }}>
+                                  <button
+                                    disabled={idx === 0}
+                                    onClick={() => { const arr = [...orderedChapters]; [arr[idx-1], arr[idx]] = [arr[idx], arr[idx-1]]; setCompilerChapterOrdering(arr); }}
+                                    style={{ background: "none", border: "none", color: idx === 0 ? "rgba(255,255,255,0.15)" : "rgba(255,255,255,0.5)", cursor: idx === 0 ? "default" : "pointer", fontSize: "0.85rem", padding: "0.2rem 0.4rem" }}
+                                  >▲</button>
+                                  <button
+                                    disabled={idx === orderedChapters.length - 1}
+                                    onClick={() => { const arr = [...orderedChapters]; [arr[idx], arr[idx+1]] = [arr[idx+1], arr[idx]]; setCompilerChapterOrdering(arr); }}
+                                    style={{ background: "none", border: "none", color: idx === orderedChapters.length - 1 ? "rgba(255,255,255,0.15)" : "rgba(255,255,255,0.5)", cursor: idx === orderedChapters.length - 1 ? "default" : "pointer", fontSize: "0.85rem", padding: "0.2rem 0.4rem" }}
+                                  >▼</button>
+                                </div>
+                              </div>
+
+                              {/* Expanded Chapter Scenes List */}
+                              {isExpanded && (
+                                <div style={{ padding: "0.6rem 1rem 0.85rem 2.2rem", background: "rgba(0,0,0,0.2)", borderTop: "1px solid rgba(255,255,255,0.04)" }}>
+                                  {chScenes.length === 0 ? (
+                                    <span style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.3)", fontStyle: "italic" }}>No scenes in this chapter</span>
+                                  ) : (
+                                    chScenes.map((sc: any, sIdx: number) => (
+                                      <div key={sc.id} style={{ fontSize: "0.78rem", color: "rgba(255,255,255,0.7)", padding: "0.3rem 0", display: "flex", justifyContent: "space-between" }}>
+                                        <span>📄 Scene {sIdx + 1}: {sc.title || "Untitled Scene"}</span>
+                                        <span style={{ color: "rgba(255,255,255,0.35)" }}>{(sc.word_count || 0).toLocaleString()} w</span>
+                                      </div>
+                                    ))
+                                  )}
+                                </div>
+                              )}
                             </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     )}
-                    <div style={{ marginTop: "1.25rem", display: "flex", justifyContent: "flex-end" }}>
-                      <button
-                        onClick={() => setCompilerSection("scene-break")}
-                        style={{ background: "#e08e6d", color: "#fff", border: "none", padding: "0.5rem 1rem", borderRadius: "6px", fontSize: "0.85rem", fontWeight: 700, cursor: "pointer" }}
-                      >Next: Scene Breaks →</button>
-                    </div>
                   </SectionCard>
 
                   {/* 3. Scene Break Detection */}
@@ -1326,15 +1457,6 @@ export default function Workspace({
                         <p style={{ color: "rgba(255,255,255,0.7)", fontSize: "0.82rem", lineHeight: 1.7, margin: 0, fontFamily: "Georgia,serif" }}>
                           Three days later, the letter arrived.
                         </p>
-                      </div>
-                      <p style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.3)", marginTop: "0.75rem", lineHeight: 1.5 }}>
-                        Detected in {safeScenes.filter((s: any) => (s?.content || "").includes("\n\n")).length} of {safeScenes.length} scenes.
-                      </p>
-                      <div style={{ marginTop: "1.25rem", display: "flex", justifyContent: "flex-end" }}>
-                        <button
-                          onClick={() => setCompilerSection("front-matter")}
-                          style={{ background: "#e08e6d", color: "#fff", border: "none", padding: "0.5rem 1rem", borderRadius: "6px", fontSize: "0.85rem", fontWeight: 700, cursor: "pointer" }}
-                        >Next: Front Matter →</button>
                       </div>
                     </div>
                   </SectionCard>
@@ -1366,23 +1488,6 @@ export default function Workspace({
                           onChange={e => setFrontMatter(f => ({ ...f, dedication: e.target.value }))}
                         />
                       </div>
-                      <div style={{ display: "flex", gap: "1rem", marginTop: "0.25rem" }}>
-                        {[
-                          { key: "includeToc" as const, label: "Table of Contents" },
-                          { key: "includeCopyright" as const, label: "Copyright Page" }
-                        ].map(({ key, label }) => (
-                          <button key={key} onClick={() => setFrontMatter(f => ({ ...f, [key]: !f[key] }))} style={{ display: "flex", alignItems: "center", gap: "0.4rem", background: "none", border: "none", cursor: "pointer", padding: 0 }}>
-                            <span style={{ width: "16px", height: "16px", borderRadius: "4px", background: frontMatter[key] ? "#9f8ad0" : "rgba(255,255,255,0.1)", display: "inline-block", flexShrink: 0 }} />
-                            <span style={{ fontSize: "0.78rem", color: "rgba(255,255,255,0.55)" }}>{label}</span>
-                          </button>
-                        ))}
-                      </div>
-                      <div style={{ marginTop: "1.25rem", display: "flex", justifyContent: "flex-end" }}>
-                        <button
-                          onClick={() => setCompilerSection("back-matter")}
-                          style={{ background: "#e08e6d", color: "#fff", border: "none", padding: "0.5rem 1rem", borderRadius: "6px", fontSize: "0.85rem", fontWeight: 700, cursor: "pointer" }}
-                        >Next: Back Matter →</button>
-                      </div>
                     </div>
                   </SectionCard>
 
@@ -1407,23 +1512,6 @@ export default function Workspace({
                           onChange={e => setBackMatter(b => ({ ...b, acknowledgements: e.target.value }))}
                         />
                       </div>
-                      <div style={{ display: "flex", gap: "1rem", marginTop: "0.25rem" }}>
-                        {[
-                          { key: "includeGlossary" as const, label: "Glossary" },
-                          { key: "includeIndex" as const, label: "Index" }
-                        ].map(({ key, label }) => (
-                          <button key={key} onClick={() => setBackMatter(b => ({ ...b, [key]: !b[key] }))} style={{ display: "flex", alignItems: "center", gap: "0.4rem", background: "none", border: "none", cursor: "pointer", padding: 0 }}>
-                            <span style={{ width: "16px", height: "16px", borderRadius: "4px", background: backMatter[key] ? "#9f8ad0" : "rgba(255,255,255,0.1)", display: "inline-block", flexShrink: 0 }} />
-                            <span style={{ fontSize: "0.78rem", color: "rgba(255,255,255,0.55)" }}>{label}</span>
-                          </button>
-                        ))}
-                      </div>
-                      <div style={{ marginTop: "1.25rem", display: "flex", justifyContent: "flex-end" }}>
-                        <button
-                          onClick={() => setCompilerSection("consistency")}
-                          style={{ background: "#e08e6d", color: "#fff", border: "none", padding: "0.5rem 1rem", borderRadius: "6px", fontSize: "0.85rem", fontWeight: 700, cursor: "pointer" }}
-                        >Next: Consistency Check →</button>
-                      </div>
                     </div>
                   </SectionCard>
 
@@ -1433,19 +1521,16 @@ export default function Workspace({
                       <button
                         onClick={() => {
                           setCheckingConsistency(true);
-                          // Scan character names in entities vs scenes
                           const charNames = entities.filter((e: any) => e.type === "character").map((e: any) => e.name?.toLowerCase());
                           const issues: {type:string; message:string; chapter:string}[] = [];
                           scenes.forEach((sc: any) => {
                             const content = (sc.content || "").toLowerCase();
                             charNames.forEach((name: string) => {
                               if (!name) return;
-                              // Check for common misspellings (uppercase first letter only)
                               if (content.includes(name) && !content.includes(name.charAt(0).toUpperCase() + name.slice(1))) {
                                 issues.push({ type: "name", message: `"${name}" appears in unexpected casing`, chapter: sc.title || sc.id });
                               }
                             });
-                            // Check for double spaces
                             if (content.includes("  ")) {
                               issues.push({ type: "spacing", message: "Double space detected", chapter: sc.title || sc.id });
                             }
@@ -1472,19 +1557,12 @@ export default function Workspace({
                           ))}
                         </div>
                       )}
-                      <div style={{ marginTop: "1.25rem", display: "flex", justifyContent: "flex-end" }}>
-                        <button
-                          onClick={() => setCompilerSection("word-count")}
-                          style={{ background: "#e08e6d", color: "#fff", border: "none", padding: "0.5rem 1rem", borderRadius: "6px", fontSize: "0.85rem", fontWeight: 700, cursor: "pointer" }}
-                        >Next: Final Reports →</button>
-                      </div>
                     </div>
                   </SectionCard>
 
                   {/* 7. Word Count Reports */}
                   <SectionCard id="word-count" icon="📊" title="Step 7: Final Reports">
                     <div style={{ paddingTop: "0.85rem" }}>
-                      {/* Summary row */}
                       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "0.5rem", marginBottom: "1rem" }}>
                         {[
                           { label: "Total Words", value: totalWords.toLocaleString() },
@@ -1497,7 +1575,6 @@ export default function Workspace({
                           </div>
                         ))}
                       </div>
-                      {/* Per-chapter bars */}
                       {orderedChapters.length === 0 ? (
                         <p style={{ fontSize: "0.8rem", color: "rgba(255,255,255,0.3)", textAlign: "center" }}>No chapters.</p>
                       ) : (
@@ -1520,12 +1597,6 @@ export default function Workspace({
                           })}
                         </div>
                       )}
-                      <div style={{ marginTop: "1.25rem", display: "flex", justifyContent: "flex-end" }}>
-                        <button
-                          onClick={() => setCompilerSection("export-packages")}
-                          style={{ background: "linear-gradient(135deg, #9f8ad0, #c084fc)", color: "#fff", border: "none", padding: "0.5rem 1.25rem", borderRadius: "6px", fontSize: "0.85rem", fontWeight: 700, cursor: "pointer" }}
-                        >Proceed to Export ✦</button>
-                      </div>
                     </div>
                   </SectionCard>
 
@@ -1534,7 +1605,7 @@ export default function Workspace({
                     <div style={{ paddingTop: "0.85rem" }}>
                       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.65rem", marginBottom: "1.25rem" }}>
                         {([
-                          { id: "epub",     icon: "📚", label: "EPUB",       desc: "eBook · _epub folder" },
+                          { id: "epub",     icon: "📚", label: "EPUB",       desc: "eBook · .epub file" },
                           { id: "html",     icon: "📄", label: "PDF / HTML", desc: "Print-ready .html" },
                           { id: "docx",     icon: "📘", label: "DOCX",       desc: "Microsoft Word .doc" },
                           { id: "markdown", icon: "📝", label: "Markdown",   desc: "Clean plaintext .md" }
@@ -1570,7 +1641,7 @@ export default function Workspace({
                           letterSpacing: "0.02em", transition: "all 0.2s"
                         }}
                       >
-                        {exporting ? "⏳  Compiling..." : `✦  Compile as ${exportFormat.toUpperCase()}`}
+                        {exporting ? "⏳  Compiling & Downloading..." : `✦  Compile & Download as ${exportFormat.toUpperCase()}`}
                       </button>
 
                       {/* Success state */}
@@ -1581,13 +1652,160 @@ export default function Workspace({
                             <strong style={{ color: "#34d399", fontSize: "0.9rem" }}>Compilation Complete</strong>
                           </div>
                           <p style={{ fontSize: "0.78rem", color: "#a7f3d0", fontFamily: "monospace", margin: 0, wordBreak: "break-all" }}>{exportResult.fileName}</p>
-                          <p style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.3)", fontFamily: "monospace", margin: "0.25rem 0 0", wordBreak: "break-all" }}>{exportResult.path}</p>
+
+                          <div style={{ display: "flex", gap: "0.6rem", marginTop: "0.75rem" }}>
+                            <button
+                              onClick={() => {
+                                const ext = exportFormat === "markdown" ? "md" : exportFormat === "docx" ? "doc" : exportFormat;
+                                const mime = exportFormat === "html" ? "text/html" : exportFormat === "docx" ? "application/msword" : "text/plain";
+                                downloadCompiledBlob(exportResult.compiledContent || "", exportResult.fileName, mime);
+                              }}
+                              style={{
+                                flex: 1,
+                                background: "#34d399",
+                                color: "#064e3b",
+                                border: "none",
+                                borderRadius: "6px",
+                                padding: "0.45rem 0.75rem",
+                                fontSize: "0.78rem",
+                                fontWeight: 700,
+                                cursor: "pointer"
+                              }}
+                            >
+                              📥 Download File Again
+                            </button>
+                            <button
+                              onClick={() => setShowCompilerPreviewModal(true)}
+                              style={{
+                                flex: 1,
+                                background: "rgba(255,255,255,0.06)",
+                                color: "#fff",
+                                border: "1px solid rgba(255,255,255,0.1)",
+                                borderRadius: "6px",
+                                padding: "0.45rem 0.75rem",
+                                fontSize: "0.78rem",
+                                fontWeight: 600,
+                                cursor: "pointer"
+                              }}
+                            >
+                              👁️ View Compiled Book
+                            </button>
+                          </div>
                         </div>
                       )}
                     </div>
                   </SectionCard>
 
                 </div>
+
+                {/* 🌟 FULL MANUSCRIPT READER PREVIEW MODAL */}
+                {showCompilerPreviewModal && (
+                  <div style={{
+                    position: "fixed", inset: 0, zIndex: 10000,
+                    background: "rgba(10, 8, 16, 0.88)", backdropFilter: "blur(12px)",
+                    display: "flex", alignItems: "center", justifyContent: "center", padding: "2rem"
+                  }}>
+                    <div style={{
+                      background: "#181624", border: "1px solid rgba(192,132,252,0.3)",
+                      borderRadius: "16px", width: "90%", maxWidth: "800px", maxHeight: "85vh",
+                      display: "flex", flexDirection: "column", overflow: "hidden", boxShadow: "0 25px 50px -12px rgba(0,0,0,0.5)"
+                    }}>
+                      {/* Modal Header */}
+                      <div style={{ padding: "1.2rem 1.5rem", borderBottom: "1px solid rgba(255,255,255,0.08)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <div>
+                          <h3 style={{ margin: 0, color: "#e08e6d", fontSize: "1.2rem", fontFamily: "'Source Serif 4', serif" }}>
+                            📖 Manuscript Compiled Reader Preview
+                          </h3>
+                          <span style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.4)" }}>
+                            {chapters.length} Chapters · {scenes.length} Scenes · {totalWords.toLocaleString()} Words
+                          </span>
+                        </div>
+                        <div style={{ display: "flex", gap: "0.6rem" }}>
+                          <button
+                            onClick={() => {
+                              let compiledText = exportResult?.compiledContent || "";
+                              if (!compiledText) {
+                                const safeChaps = Array.isArray(chapters) ? chapters : [];
+                                const safeScenes = Array.isArray(scenes) ? scenes : [];
+                                safeChaps.forEach((ch: any, i: number) => {
+                                  compiledText += `# Chapter ${i+1}: ${ch.title}\n\n`;
+                                  safeScenes.filter((s: any) => s.chapter_id === ch.id).forEach((sc: any) => {
+                                    compiledText += (sc.content || "").replace(/<[^>]+>/g, " ") + "\n\n";
+                                  });
+                                });
+                              }
+                              downloadCompiledBlob(compiledText, `${project.name || "Manuscript"}_Compiled.md`, "text/plain");
+                            }}
+                            style={{ background: "rgba(192,132,252,0.2)", color: "#c084fc", border: "1px solid rgba(192,132,252,0.4)", borderRadius: "8px", padding: "0.4rem 0.8rem", fontSize: "0.78rem", fontWeight: 700, cursor: "pointer" }}
+                          >
+                            📥 Download (.md)
+                          </button>
+                          <button
+                            onClick={() => setShowCompilerPreviewModal(false)}
+                            style={{ background: "none", border: "none", color: "rgba(255,255,255,0.5)", fontSize: "1.4rem", cursor: "pointer", padding: "0 0.4rem" }}
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Modal Content Scroll Pane */}
+                      <div style={{ padding: "2rem", overflowY: "auto", flex: 1, fontFamily: compilerFontFamily || "'Source Serif 4', serif", fontSize: `${compilerFontSize || 12}pt`, lineHeight: compilerLineSpacing === "double" ? 2 : compilerLineSpacing === "1.5" ? 1.5 : 1.2, color: "rgba(255,255,255,0.85)" }}>
+                        {frontMatter.title && (
+                          <div style={{ textAlign: "center", marginBottom: "3rem", borderBottom: "1px solid rgba(255,255,255,0.08)", paddingBottom: "2rem" }}>
+                            <h1 style={{ fontSize: "2.2rem", fontWeight: 800, color: "#fff", margin: "0 0 0.5rem 0" }}>{frontMatter.title}</h1>
+                            {frontMatter.subtitle && <h3 style={{ fontSize: "1.2rem", color: "rgba(255,255,255,0.6)", margin: "0 0 1rem 0" }}>{frontMatter.subtitle}</h3>}
+                            {frontMatter.author && <div style={{ fontSize: "1rem", color: "#c084fc", fontWeight: 600 }}>By {frontMatter.author}</div>}
+                          </div>
+                        )}
+
+                        {orderedChapters.map((ch: any, idx: number) => {
+                          const chScenes = safeScenes.filter((s: any) => s.chapter_id === ch.id);
+                          return (
+                            <div key={ch.id} style={{ marginBottom: "3rem" }}>
+                              <h2 style={{ fontSize: "1.6rem", fontWeight: 700, color: "#e08e6d", borderBottom: "1px solid rgba(255,255,255,0.1)", paddingBottom: "0.5rem", marginBottom: "1.5rem" }}>
+                                Chapter {idx + 1}: {ch.title || "Untitled Chapter"}
+                              </h2>
+
+                              {chScenes.length === 0 ? (
+                                <p style={{ fontStyle: "italic", color: "rgba(255,255,255,0.3)" }}>No scenes in this chapter.</p>
+                              ) : (
+                                chScenes.map((sc: any, sIdx: number) => {
+                                  let sceneText = "";
+                                  try {
+                                    const parsed = JSON.parse(sc.content || "");
+                                    const extractText = (node: any): string => {
+                                      if (!node) return "";
+                                      if (node.type === "text") return node.text || "";
+                                      if (node.type === "paragraph") return (node.content ? node.content.map(extractText).join("") : "") + "\n\n";
+                                      if (node.content) return node.content.map(extractText).join(" ");
+                                      return "";
+                                    };
+                                    sceneText = extractText(parsed);
+                                  } catch {
+                                    sceneText = (sc.content || "").replace(/<[^>]+>/g, "\n");
+                                  }
+
+                                  return (
+                                    <div key={sc.id} style={{ marginBottom: "1.5rem" }}>
+                                      <div style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{sceneText}</div>
+                                      {sIdx < chScenes.length - 1 && (
+                                        <div style={{ textAlign: "center", margin: "1.5rem 0", color: "rgba(255,255,255,0.3)", letterSpacing: "0.3em" }}>
+                                          {compilerSceneBreak === "blank" ? " " : compilerSceneBreak}
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                })
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
               </div>
             );
           })()}

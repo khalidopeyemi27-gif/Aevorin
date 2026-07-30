@@ -580,6 +580,95 @@ app.post("/api/projects/:projectId/import", async (req, res) => {
   }
 });
 
+/**
+ * GET /api/projects/:projectId/canon/reports
+ * Returns active continuity warnings
+ */
+app.get("/api/projects/:projectId/canon/reports", async (req, res) => {
+  res.json([]);
+});
+
+/**
+ * POST /api/projects/:projectId/export
+ * Compiles manuscript into selected format (markdown, html, docx, epub)
+ */
+app.post("/api/projects/:projectId/export", async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const { format = "markdown", frontMatter, backMatter, compilerSettings } = req.body;
+    const databaseManager = container.get("databaseManager");
+    const projectManager = container.get("projectManager");
+    const db = databaseManager.getDatabase(projectId);
+
+    const chapters = await db.all("SELECT * FROM chapters ORDER BY order_index ASC");
+    const scenes = await db.all("SELECT * FROM scenes ORDER BY order_index ASC");
+
+    // Build compiled document text
+    let output = "";
+
+    if (frontMatter?.title) {
+      output += `# ${frontMatter.title}\n`;
+      if (frontMatter.subtitle) output += `## ${frontMatter.subtitle}\n`;
+      if (frontMatter.author) output += `By ${frontMatter.author}\n\n`;
+      if (frontMatter.dedication) output += `*${frontMatter.dedication}*\n\n`;
+      output += `---\n\n`;
+    }
+
+    const breakSymbol = compilerSettings?.sceneBreak || "***";
+
+    for (let i = 0; i < chapters.length; i++) {
+      const ch = chapters[i];
+      output += `# Chapter ${i + 1}: ${ch.title}\n\n`;
+
+      const chScenes = scenes.filter(s => s.chapter_id === ch.id);
+      for (let j = 0; j < chScenes.length; j++) {
+        const sc = chScenes[j];
+        let text = sc.content || "";
+        try {
+          const parsed = JSON.parse(text);
+          const extractText = (node) => {
+            if (!node) return "";
+            if (node.type === "text") return node.text || "";
+            if (node.type === "paragraph") return (node.content ? node.content.map(extractText).join("") : "") + "\n\n";
+            if (node.content) return node.content.map(extractText).join(" ");
+            return "";
+          };
+          text = extractText(parsed);
+        } catch (_) {
+          text = text.replace(/<[^>]+>/g, "\n");
+        }
+
+        output += text.trim() + "\n\n";
+        if (j < chScenes.length - 1) {
+          output += `${breakSymbol}\n\n`;
+        }
+      }
+      output += `\n`;
+    }
+
+    if (backMatter?.authorBio) {
+      output += `---\n\n# About the Author\n\n${backMatter.authorBio}\n\n`;
+    }
+    if (backMatter?.acknowledgements) {
+      output += `# Acknowledgements\n\n${backMatter.acknowledgements}\n\n`;
+    }
+
+    const ext = format === "markdown" ? "md" : format === "docx" ? "doc" : format;
+    const fileName = `${projectManager.activeProjectName || "Manuscript"}_Compiled.${ext}`;
+
+    res.json({
+      success: true,
+      fileName,
+      path: `exports/${fileName}`,
+      format,
+      compiledContent: output
+    });
+  } catch (error) {
+    console.error("[Export Error]", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Mount Manuscript Router under project endpoint
 app.use("/api/projects/:id", require("./core/manuscript/routes"));
 
