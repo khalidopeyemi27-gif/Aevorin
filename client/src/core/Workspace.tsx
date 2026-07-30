@@ -1277,7 +1277,10 @@ export default function Workspace({
             };
 
             const toggleSection = (id: string) => {
-              setOpenCompilerSections(prev => ({ ...prev, [id]: !prev[id] }));
+              setOpenCompilerSections(prev => {
+                const currentlyOpen = prev[id] !== false;
+                return { ...prev, [id]: !currentlyOpen };
+              });
             };
 
             const expandAllSections = () => {
@@ -1313,7 +1316,9 @@ export default function Workspace({
                   }}
                 >
                   <button
-                    onClick={() => {
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
                       setActiveCompilerStep(id);
                       toggleSection(id);
                     }}
@@ -1326,14 +1331,34 @@ export default function Workspace({
                       background: isSelected ? "rgba(224,142,109,0.06)" : "none",
                       border: "none",
                       cursor: "pointer",
-                      gap: "0.75rem"
+                      gap: "0.75rem",
+                      userSelect: "none"
                     }}
                   >
                     <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
                       <span style={{ fontSize: "1.1rem" }}>{icon}</span>
                       <span style={{ fontSize: "0.95rem", fontWeight: 700, color: isSelected ? "#e08e6d" : isOpen ? "#fff" : "#94a3b8" }}>{title}</span>
                     </div>
-                    <span style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.3)", transform: isOpen ? "rotate(180deg)" : "none", transition: "transform 0.2s" }}>▼</span>
+
+                    {/* Arrowhead & Expand/Collapse Pill */}
+                    <div
+                      style={{
+                        padding: "0.25rem 0.55rem",
+                        borderRadius: "6px",
+                        background: isOpen ? "rgba(224,142,109,0.12)" : "rgba(255,255,255,0.05)",
+                        border: isOpen ? "1px solid rgba(224,142,109,0.3)" : "1px solid rgba(255,255,255,0.08)",
+                        color: isOpen ? "#e08e6d" : "rgba(255,255,255,0.4)",
+                        fontSize: "0.72rem",
+                        fontWeight: 700,
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "0.35rem",
+                        transition: "all 0.2s ease"
+                      }}
+                    >
+                      <span>{isOpen ? "Hide" : "Open"}</span>
+                      <span style={{ transform: isOpen ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s ease", display: "inline-block" }}>▼</span>
+                    </div>
                   </button>
                   {isOpen && (
                     <div style={{ padding: "0 1.25rem 1.25rem", borderTop: "1px solid rgba(255,255,255,0.05)" }}>
